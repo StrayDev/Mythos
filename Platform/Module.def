@@ -1,0 +1,3 @@
+LIBRARY "Platform"
+
+EXPORTS func
