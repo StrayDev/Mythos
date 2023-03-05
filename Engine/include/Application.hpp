@@ -5,13 +5,16 @@
 #include <vector>
 
 // Interface
+#include "LayerStack.hpp"
 #include "Module/Module.hpp"
+#include "Utility/Export.hpp"
 
 // --
 namespace Mythos
 {
+	// --
 
-	class Application
+	class ENGINE_API Application
 	{
 	public:
 		Application();
@@ -19,14 +22,15 @@ namespace Mythos
 		
 		void Run();
 
-
+		
 	private:
-		std::vector<std::unique_ptr<Module>> modules_;
-		std::vector<std::unique_ptr<ILayer>> layers_;
 
-		bool is_running;
+		bool is_running_;
 
 	};
+
+	std::vector<std::unique_ptr<Module, std::default_delete<Module>>> modules_;
+	std::vector<std::unique_ptr<ILayer>> layers_;
 
 	extern std::unique_ptr<Application> CreateApplication();
 }

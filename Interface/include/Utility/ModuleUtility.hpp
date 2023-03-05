@@ -21,7 +21,7 @@
 namespace Mythos::Utility
 {
 
-    void* LoadModuleHandle(const std::string& file_name)
+    MODULE_HANDLE LoadModuleLibrary(const std::string& file_name)
     {
 	    const auto handle = LoadLibrary(StringToWString(file_name).c_str());
 
@@ -31,16 +31,17 @@ namespace Mythos::Utility
             return nullptr;
         }
 
+        std::cout << "Library Successfully Loaded : " << file_name << '\n';
         return handle;
     }
 
-	std::unique_ptr<Module> LoadModule(const std::string& file_name, void* handle)
+	std::unique_ptr<Module> LoadModule(MODULE_HANDLE handle)
     {
         // First, define a function pointer type for MakeUnique
         using func = std::unique_ptr<Module>(*)(void*);
 
         // Get the function pointer using GetProcAddress()
-        const auto proc = GetProcAddress(static_cast<HMODULE>(handle), "func");
+        const auto proc = GetProcAddress(handle, "func");
 
         // Check we have the correct proc
         if(proc == nullptr)
@@ -78,6 +79,7 @@ namespace Mythos::Utility
 
 	bool TryLoadModules(std::vector<std::unique_ptr<Module>>& list)
     {
+        // init list
         list = std::vector<std::unique_ptr<Module>>();
 
         // get the list of .dll file names
@@ -87,8 +89,8 @@ namespace Mythos::Utility
         for (const auto& file_name : files)
         {
             // create the module
-            auto* handle = LoadModuleHandle(file_name);
-            auto  module = LoadModule(file_name, handle);
+            auto* handle = LoadModuleLibrary(file_name);
+            auto  module = LoadModule(handle);
 
             // skip if null
             if (module == nullptr) continue;

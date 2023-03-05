@@ -14,6 +14,10 @@
 // --
 namespace Mythos::Platform
 {
+	MessageHook::MessageHook()
+	{
+		std::cout << " >> Creating Message Hook Object\n";
+	}
 
 	MessageHook::~MessageHook()
 	{

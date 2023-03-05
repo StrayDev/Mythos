@@ -10,7 +10,7 @@ namespace Mythos::Platform
 	class MessageHook
 	{
 	public:
-		MessageHook() = default;
+		MessageHook();
 		~MessageHook();
 
 		std::function<void()>& InstallKeyboardHook();

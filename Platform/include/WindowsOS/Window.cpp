@@ -10,7 +10,7 @@ namespace Mythos::Platform
 
 	Window::Window()
 	{
-		std::cout << "creating Window\n";
+		std::cout << " >> Creating Window Object\n";
 		Create();
 	}
 

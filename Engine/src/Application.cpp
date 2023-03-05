@@ -2,15 +2,14 @@
 
 // STL
 #include <iostream>
-#include <vector>
 
 // Utility
 #include "Utility/ModuleUtility.hpp"
 
-
 // --
 Mythos::Application::Application()
 {
+
 	// try populate the modules
 	if(!Utility::TryLoadModules(modules_))
 	{
@@ -32,7 +31,7 @@ Mythos::Application::Application()
 	}
 
 	// enable run loop 
-	is_running = true;
+	is_running_ = true;
 }
 
 Mythos::Application::~Application()
@@ -42,7 +41,8 @@ Mythos::Application::~Application()
 
 void Mythos::Application::Run()
 {
-	while (true)
+
+	while (is_running_)
 	{
 		for (const auto& layer : layers_)
 		{

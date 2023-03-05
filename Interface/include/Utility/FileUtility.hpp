@@ -46,15 +46,20 @@ namespace Mythos::Utility
             // add all DLLs to the list
             if (auto e = entry.path().extension().string(); e == extension)
             {
+                if (entry.path().filename().string() == "Engine.dll") continue;
                 dll_names.push_back(entry.path().filename().string());
             }
         }
 
-        // print the names // TODO : Remove
+        // print the names
+        std::cout << "Loading DLL's in directory : \n\n";
+
         for (const auto& name : dll_names)
         {
-            std::cout << ">> " << name << '\n';
+            std::cout << " >> " << name << '\n';
         }
+
+        std::cout << "\n";
 
         return dll_names;
     }

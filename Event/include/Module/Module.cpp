@@ -4,14 +4,15 @@
 
 // Include
 #include "Module/Module.hpp"
-#include "Module/Layer.hpp"
+#include "Module/ILayer.hpp"
 
 // Utility
+#include <iostream>
+
+#include "Layer.hpp"
 #include "Utility/Constants.hpp"
 #include "Utility/Macro.hpp"
 
-// STL
-#include <iostream>
 
 // Export Module
 MODULE_API std::unique_ptr<const Mythos::Module> func(MODULE_HANDLE handle)
@@ -20,12 +21,12 @@ MODULE_API std::unique_ptr<const Mythos::Module> func(MODULE_HANDLE handle)
 	{
 		.handle = handle,
 
-		.priority = Mythos::PLATFORM,
-		.secondary = Mythos::PLATFORM + 0,
+		.priority = Mythos::EVENT,
+		.secondary = Mythos::EVENT + 0,
 
-		.name = "Default Windows Platform Module",
+		.name = "Default Event Module",
 		.version = "Version 0.0.0.1",
-		.description = "Default platform layer for use with windows OS",
+		.description = "Default event layer",
 
 		.dll_path = FILE_PATH,
 		.dll_name = FILE_NAME,
@@ -48,12 +49,12 @@ namespace Mythos
 
 	void OnProcessAttach()
 	{
-		std::cout << "Platform Module Attached";
+		std::cout << "Event Module Attached";
 	}
 
 	void OnProcessDetach()
 	{
-		std::cout << "Platform Module Detached";
+		std::cout << "Event Module Detached";
 
 	}
 

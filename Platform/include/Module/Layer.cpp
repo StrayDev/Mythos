@@ -7,6 +7,7 @@
 
 Mythos::Layer::Layer()
 {
+	std::cout << "\nCreating Platform Layer :\n\n";
 
 	window_ = std::make_unique<Window>();
 	msg_loop_ = std::make_unique<MessageLoop>();

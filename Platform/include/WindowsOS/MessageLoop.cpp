@@ -3,9 +3,17 @@
 // Microsoft
 #include <Windows.h>
 
+// STL
+#include <iostream>
 
+// --
 namespace Mythos::Platform
 {
+	MessageLoop::MessageLoop()
+	{
+		std::cout << " >> Creating MessageLoop Object\n";
+	}
+
 	void MessageLoop::Update()
 	{
 		MSG msg;
