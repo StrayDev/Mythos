@@ -6,12 +6,19 @@
 // STL
 #include <iostream>
 
+#include "Debug.hpp"
+
 // --
 namespace Mythos::Platform
 {
 	MessageLoop::MessageLoop()
 	{
-		std::cout << " >> Creating MessageLoop Object\n";
+		Debug::log(" >> Creating message_loop object");
+	}
+
+	MessageLoop::~MessageLoop()
+	{
+		Debug::log(" >> Destroying message_loop object");
 	}
 
 	void MessageLoop::Update()

@@ -8,7 +8,7 @@ namespace Mythos::Platform
 	{
 	public:
 		MessageLoop();
-		~MessageLoop() = default;
+		~MessageLoop();
 
 		void Update();
 

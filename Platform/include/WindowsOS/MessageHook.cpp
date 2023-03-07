@@ -8,6 +8,7 @@
 #include <iostream>
 
 // Callbacks
+#include "Debug.hpp"
 #include "WindowsOS/Callbacks/Keyboard.hpp"
 #include "WindowsOS/Callbacks/Mouse.hpp"
 
@@ -16,11 +17,13 @@ namespace Mythos::Platform
 {
 	MessageHook::MessageHook()
 	{
-		std::cout << " >> Creating Message Hook Object\n";
+		Debug::log(" >> Creating message_hook object");
 	}
 
 	MessageHook::~MessageHook()
 	{
+		Debug::log(" >> Destroying message_loop object");
+
 		for (auto hook : hook_list_)
 		{
 			UnhookWindowsHookEx((HHOOK)hook);

@@ -18,6 +18,7 @@ Mythos::Application::Application()
 	// try populate the modules
 	if(!Utility::TryLoadModules(modules_))
 	{
+		Debug::error("Utility::TryLoadModules() : failed to load modules");
 
 		// release modules if partially loaded
 		for(const auto& m : modules_)
@@ -30,7 +31,7 @@ Mythos::Application::Application()
 	// try populate the layers
 	if(!Utility::TryCreateLayers(modules_, layers_))
 	{
-		std::cout << "Utility::TryCreateLayers() : failed to create the layers" << '\n' << __LINE__ << " : " << __FILE__ << '\n';
+		Debug::error("Utility::TryCreateLayers() : failed to create layers");
 		return;
 	}
 
@@ -40,7 +41,7 @@ Mythos::Application::Application()
 
 Mythos::Application::~Application()
 {
-	std::cout << "Application Destroyed\n";
+	Debug::log("Application Destroyed");
 }
 
 void Mythos::Application::Run()

@@ -4,18 +4,21 @@
 #include <Windows.h>
 #include <iostream>
 
+#include "Debug.hpp"
+
 //--
 namespace Mythos::Platform
 {
 
 	Window::Window()
 	{
-		std::cout << " >> Creating Window Object\n";
+		Debug::log(" >> Creating window object");
 		Create();
 	}
 
 	Window::~Window()
 	{
+		Debug::log(" >> Destroying window object");
 		Destroy();
 	}
 

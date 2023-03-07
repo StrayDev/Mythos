@@ -52,14 +52,15 @@ namespace Mythos::Utility
         }
 
         // print the names
-        std::cout << "Loading DLL's in directory : \n\n";
+        Debug::log("Loading .dll's in directory : " + directory);
+        Debug::new_line();
 
+        // debug
         for (const auto& name : dll_names)
         {
-            std::cout << " >> " << name << '\n';
+            Debug::log(">> " + name);
         }
-
-        std::cout << "\n";
+        Debug::new_line();
 
         return dll_names;
     }

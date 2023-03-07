@@ -4,10 +4,12 @@
 
 #include "WindowsOS/Window.hpp"
 
+#include "Debug.hpp"
+
 
 Mythos::Layer::Layer()
 {
-	std::cout << "\nCreating Platform Layer :\n\n";
+	Debug::log_header("Platform Layer : Creating the platform layer");
 
 	window_ = std::make_unique<Window>();
 	msg_loop_ = std::make_unique<MessageLoop>();
@@ -20,7 +22,7 @@ Mythos::Layer::Layer()
 
 Mythos::Layer::~Layer()
 {
-
+	Debug::log_header("Platform Layer : Destroying the platform layer");
 }
 
 void Mythos::Layer::Update()

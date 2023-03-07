@@ -4,7 +4,11 @@
 namespace Mythos
 {
 	// shared memory keys
-	const std::string DEBUG_KEY = "Debug";
+	const std::string DEBUG_LOG_KEY = "DEBUG_LOG_KEY";
+	const std::string DEBUG_WARN_KEY = "DEBUG_WARN_KEY";
+	const std::string DEBUG_ERROR_KEY = "DEBUG_ERROR_KEY";
+	const std::string DEBUG_ASSERT_KEY = "DEBUG_ASSERT_KEY";
+	const std::string DEBUG_EXCEPTION_KEY = "DEBUG_EXCEPTION_KEY";
 
 
 	// priority ranges for modules and layers

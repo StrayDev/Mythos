@@ -11,7 +11,8 @@
 // Class
 #include "Module/Module.hpp"
 
-// Utility
+// Mythos
+#include "Debug.hpp"
 #include "FileUtility.hpp"
 #include "InterfaceUtility.hpp"
 #include "StringUtility.hpp"
@@ -27,11 +28,11 @@ namespace Mythos::Utility
 
         if (handle == nullptr)
         {
-            std::cout << "Failed to load module : " << file_name << '\n';
+            Debug::error("Failed to load module : " + file_name);
             return nullptr;
         }
 
-        std::cout << "Library Successfully Loaded : " << file_name << '\n';
+        Debug::log("Library Successfully Loaded : " + file_name);
         return handle;
     }
 
@@ -46,7 +47,7 @@ namespace Mythos::Utility
         // Check we have the correct proc
         if(proc == nullptr)
         {
-            std::cout << "Module pointer is null : " << __LINE__ << ' ' << __FILE__ << '\n';
+            Debug::warn("Module pointer is null");
             return nullptr;
         }
 
@@ -59,7 +60,7 @@ namespace Mythos::Utility
         // check the object is valid
         if(module == nullptr)
         {
-            std::cout << "Failed to create Module Object : " << __LINE__ << ' ' << __FILE__ << '\n';
+            Debug::warn("Failed to create module object");
             return nullptr;
         }
 
@@ -72,7 +73,7 @@ namespace Mythos::Utility
 
     	if(result = false)
         {
-            std::cout << "Failed to unload module : " << __LINE__ << ' ' << __FILE__ << '\n';
+            Debug::error("Failed to unload module");
         }
 
 	}
@@ -102,7 +103,7 @@ namespace Mythos::Utility
         // early exit if no modules
         if (list.empty())
         {
-            std::cout << "Failed to load any modules : " << __LINE__ << ' ' << __FILE__ << '\n';
+            Debug::error("Failed to load any modules : ");
             return false;
         }
 
@@ -112,7 +113,7 @@ namespace Mythos::Utility
         // check that stack contains at least 1 platform module
         if (list.front()->priority != PLATFORM)
         {
-            std::cout << "Unable to load Platform Module" << '\n' << __LINE__ << " : " << __FILE__ << '\n';
+            Debug::log("Unable to load platform module");
             return false;
         }
 
@@ -132,7 +133,7 @@ namespace Mythos::Utility
             if (layer == nullptr)
             {
                 // if module == PLATFORM - assert - module not able to create layer
-                std::cout << "Module failed to Generate Layer" << '\n' << __LINE__ << " : " << __FILE__ << '\n';
+                Debug::log("Failed to create layer from module");
                 continue;
             }
 
