@@ -49,7 +49,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -68,7 +68,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -82,12 +82,14 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="include\Debug.hpp" />
     <ClInclude Include="include\Module\ILayer.hpp" />
     <ClInclude Include="include\Interface\IMakeUnique.hpp" />
     <ClInclude Include="include\Interface\IMessageHook.hpp" />
     <ClInclude Include="include\Interface\IMessageLoop.hpp" />
     <ClInclude Include="include\Interface\IWindow.hpp" />
     <ClInclude Include="include\Module\Module.hpp" />
+    <ClInclude Include="include\IPC\shared_func.hpp" />
     <ClInclude Include="include\Utility\Constants.hpp" />
     <ClInclude Include="include\Utility\FileUtility.hpp" />
     <ClInclude Include="include\Utility\Handles.hpp" />

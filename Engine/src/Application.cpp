@@ -6,14 +6,18 @@
 // Utility
 #include "Utility/ModuleUtility.hpp"
 
+#include "Debug.hpp"
+
 // --
 Mythos::Application::Application()
 {
+	// set the default log behaviour
+	Debug::SetDefaultBehaviour();
+
 
 	// try populate the modules
 	if(!Utility::TryLoadModules(modules_))
 	{
-		std::cout << "Utility::TryLoadModules() : failed to load the modules" << '\n' << __LINE__ << " : " << __FILE__ << '\n';
 
 		// release modules if partially loaded
 		for(const auto& m : modules_)

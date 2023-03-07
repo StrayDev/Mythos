@@ -21,10 +21,8 @@ namespace Mythos
 		virtual ~Application();
 		
 		void Run();
-
 		
 	private:
-
 		bool is_running_;
 
 	};

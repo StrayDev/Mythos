@@ -1,8 +1,5 @@
 #include "Layer.hpp"
 
-// STL
-#include <iostream>
-
 // --
 namespace Mythos
 {
@@ -10,23 +7,22 @@ namespace Mythos
 
 	Layer::Layer()
 	{
-		
 
 	}
 
 	Layer::~Layer()
 	{
-		
+
 	}
 
 	void Layer::Update()
 	{
-		
+
 	}
 
 	void Layer::Render()
 	{
-		
+
 	}
 
 }

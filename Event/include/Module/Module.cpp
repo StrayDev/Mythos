@@ -13,7 +13,6 @@
 #include "Utility/Constants.hpp"
 #include "Utility/Macro.hpp"
 
-
 // Export Module
 MODULE_API std::unique_ptr<const Mythos::Module> func(MODULE_HANDLE handle)
 {

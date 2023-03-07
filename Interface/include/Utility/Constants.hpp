@@ -3,7 +3,11 @@
 // --
 namespace Mythos
 {
-	// Priority Ranges for Modules and Layers
+	// shared memory keys
+	const std::string DEBUG_KEY = "Debug";
+
+
+	// priority ranges for modules and layers
 	constexpr int PLATFORM = 100;
 	constexpr int DEBUG = 200;
 	constexpr int INPUT = 300;
