@@ -4,7 +4,7 @@
 // --
 namespace Mythos
 {
-	class ILayer;
+	class layer;
 	class Module;
 	// --
 
@@ -14,7 +14,7 @@ namespace Mythos
 
 
 		std::vector<std::unique_ptr<Module>> modules_;
-		std::vector<std::unique_ptr<ILayer>> layers_;
+		std::vector<std::unique_ptr<layer>> layers_;
 
 
 

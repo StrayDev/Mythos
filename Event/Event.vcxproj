@@ -79,11 +79,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="include\Module\Layer.cpp" />
-    <ClCompile Include="include\Module\Module.cpp" />
+    <ClCompile Include="include\Module\event_layer.cpp" />
+    <ClCompile Include="include\Module\event_module.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\Module\Layer.hpp" />
+    <ClInclude Include="include\Module\event_layer.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Module.def" />

@@ -1,4 +1,4 @@
-#include "Layer.hpp"
+#include "event_layer.hpp"
 
 #include "Debug.hpp"
 
@@ -7,23 +7,22 @@ namespace Mythos
 {
 	//--
 
-	Layer::Layer()
+	event_layer::event_layer()
 	{
 		Debug::log_header("Event Layer : Creating the event layer");
-
 	}
 
-	Layer::~Layer()
+	event_layer::~event_layer()
 	{
 		Debug::log_header("Event Layer : Destroying the event layer");
 	}
 
-	void Layer::Update()
+	void event_layer::update()
 	{
 
 	}
 
-	void Layer::Render()
+	void event_layer::render()
 	{
 
 	}

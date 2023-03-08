@@ -4,7 +4,7 @@
 #include <memory>
 
 // Interface
-#include "Module/ILayer.hpp"
+#include "Module/layer.hpp"
 
 // Components
 #include "WindowsOS/MessageHook.hpp"
@@ -17,14 +17,14 @@ namespace Mythos
 	// --
 	using namespace Platform;
 
-	class Layer : public ILayer
+	class platform_layer : public layer
 	{
 	public:
-		Layer();
-		~Layer() override;
+		platform_layer();
+		~platform_layer() override;
 
-		void Update() override;
-		void Render() override;
+		void update() override;
+		void render() override;
 		
 	private:
 		std::unique_ptr<Window> window_;

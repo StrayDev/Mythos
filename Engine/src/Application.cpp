@@ -51,8 +51,18 @@ void Mythos::Application::Run()
 	{
 		for (const auto& layer : layers_)
 		{
-			layer->Update();
-			layer->Render();
+			layer->update();
+			layer->render();
 		}
 	}
+}
+
+void Mythos::Application::shutdown()
+{
+	// destroy the layers first
+	layers_.clear();
+
+	// TODO : unload the modules
+
+	modules_.clear();
 }

@@ -27,7 +27,7 @@
     <ClInclude Include="include\Interface\IMessageHook.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\Module\ILayer.hpp">
+    <ClInclude Include="include\Module\layer.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\Utility\FileUtility.hpp">

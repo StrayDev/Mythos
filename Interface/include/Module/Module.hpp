@@ -9,7 +9,7 @@
 #include "../Utility/Handles.hpp"
 
 // Interface
-#include "Module/ILayer.hpp"
+#include "Module/layer.hpp"
 
 // --
 namespace Mythos
@@ -31,7 +31,7 @@ namespace Mythos
 		std::string dll_date;
 		std::string dll_time;
 
-		std::function<std::unique_ptr<ILayer>()> MakeUniqueLayer;
+		std::function<std::unique_ptr<layer>()> MakeUniqueLayer;
 	};
 
 }

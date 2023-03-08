@@ -1,13 +1,11 @@
-#include "Module/Layer.hpp"
-
-#include <iostream>
+#include "Module/platform_layer.hpp"
 
 #include "WindowsOS/Window.hpp"
 
 #include "Debug.hpp"
 
 
-Mythos::Layer::Layer()
+Mythos::platform_layer::platform_layer()
 {
 	Debug::log_header("Platform Layer : Creating the platform layer");
 
@@ -20,17 +18,17 @@ Mythos::Layer::Layer()
 	msg_hook_->InstallSystemHook() = []() { };*/
 }
 
-Mythos::Layer::~Layer()
+Mythos::platform_layer::~platform_layer()
 {
 	Debug::log_header("Platform Layer : Destroying the platform layer");
 }
 
-void Mythos::Layer::Update()
+void Mythos::platform_layer::update()
 {
 	msg_loop_->Update();
 }
 
-void Mythos::Layer::Render()
+void Mythos::platform_layer::render()
 {
 
 }

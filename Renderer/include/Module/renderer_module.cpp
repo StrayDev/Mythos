@@ -4,7 +4,7 @@
 
 // Include
 #include "Module/Module.hpp"
-#include "Module/Layer.hpp"
+#include "renderer_layer.hpp"
 
 // Utility
 #include "Utility/Constants.hpp"
@@ -20,8 +20,8 @@ MODULE_API std::unique_ptr<const Mythos::Module> func(MODULE_HANDLE handle)
 	{
 		.handle = handle,
 
-		.priority = Mythos::PLATFORM,
-		.secondary = Mythos::PLATFORM + 0,
+		.priority = Mythos::RENDER,
+		.secondary = Mythos::RENDER + 0,
 
 		.name = "Default Windows Platform Module",
 		.version = "Version 0.0.0.1",
@@ -32,29 +32,12 @@ MODULE_API std::unique_ptr<const Mythos::Module> func(MODULE_HANDLE handle)
 		.dll_date = FILE_DATE,
 		.dll_time = FILE_TIME,
 
-		.MakeUniqueLayer = []() -> std::unique_ptr<Mythos::ILayer>
+		.MakeUniqueLayer = []() -> std::unique_ptr<Mythos::layer>
 		{
-			return std::make_unique<Mythos::Layer>();
+			return std::make_unique<Mythos::renderer_layer>();
 		},
 
 	};
 
 	return std::make_unique<const Mythos::Module>(module);
-}
-
-// --
-namespace Mythos
-{
-
-	void OnProcessAttach()
-	{
-		std::cout << "Platform Module Attached";
-	}
-
-	void OnProcessDetach()
-	{
-		std::cout << "Platform Module Detached";
-
-	}
-
 }

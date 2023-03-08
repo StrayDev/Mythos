@@ -111,7 +111,7 @@ namespace Mythos::Utility
         std::ranges::sort(list, PrioritySort);
 
         // check that stack contains at least 1 platform module
-        if (list.front()->priority != PLATFORM)
+        if (list.front()->priority != EVENT)
         {
             Debug::log("Unable to load platform module");
             return false;
@@ -120,10 +120,10 @@ namespace Mythos::Utility
         return true;
     }
 
-	bool TryCreateLayers(std::vector<std::unique_ptr<Module>>& modules, std::vector<std::unique_ptr<ILayer>>& layers)
+	bool TryCreateLayers(std::vector<std::unique_ptr<Module>>& modules, std::vector<std::unique_ptr<layer>>& layers)
     {
         // create layer stack
-        layers = std::vector<std::unique_ptr<ILayer>>();
+        layers = std::vector<std::unique_ptr<layer>>();
 
         // create the layers in priority order
         for (const auto& module : modules)

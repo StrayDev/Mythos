@@ -93,7 +93,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="include\Module\Layer.hpp" />
+    <ClInclude Include="include\Module\platform_layer.hpp" />
     <ClInclude Include="include\WindowsOS\Callbacks\Mouse.hpp" />
     <ClInclude Include="include\WindowsOS\MessageHook.hpp" />
     <ClInclude Include="include\WindowsOS\MessageLoop.hpp" />
@@ -101,8 +101,8 @@
     <ClInclude Include="include\WindowsOS\Callbacks\Keyboard.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="include\Module\Module.cpp" />
-    <ClCompile Include="include\Module\Layer.cpp" />
+    <ClCompile Include="include\Module\platform_module.cpp" />
+    <ClCompile Include="include\Module\platform_layer.cpp" />
     <ClCompile Include="include\WindowsOS\MessageHook.cpp" />
     <ClCompile Include="include\WindowsOS\MessageLoop.cpp" />
     <ClCompile Include="include\WindowsOS\Window.cpp" />

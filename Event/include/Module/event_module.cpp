@@ -4,12 +4,10 @@
 
 // Include
 #include "Module/Module.hpp"
-#include "Module/ILayer.hpp"
+#include "Module/layer.hpp"
+#include "event_layer.hpp"
 
 // Utility
-#include <iostream>
-
-#include "Layer.hpp"
 #include "Utility/Constants.hpp"
 #include "Utility/Macro.hpp"
 
@@ -32,29 +30,12 @@ MODULE_API std::unique_ptr<const Mythos::Module> func(MODULE_HANDLE handle)
 		.dll_date = FILE_DATE,
 		.dll_time = FILE_TIME,
 
-		.MakeUniqueLayer = []() -> std::unique_ptr<Mythos::ILayer>
+		.MakeUniqueLayer = []() -> std::unique_ptr<Mythos::layer>
 		{
-			return std::make_unique<Mythos::Layer>();
+			return std::make_unique<Mythos::event_layer>();
 		},
 
 	};
 
 	return std::make_unique<const Mythos::Module>(module);
-}
-
-// --
-namespace Mythos
-{
-
-	void OnProcessAttach()
-	{
-		std::cout << "Event Module Attached";
-	}
-
-	void OnProcessDetach()
-	{
-		std::cout << "Event Module Detached";
-
-	}
-
 }
