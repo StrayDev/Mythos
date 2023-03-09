@@ -57,7 +57,7 @@ namespace Mythos::IPC
 		}
 
 		// Map the shared memory into the process's address space
-		map_view_ = MapViewOfFile(handle_, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+		map_view_ = MapViewOfFile(handle_, SECTION_ALL_ACCESS, 0, 0, 0);
 
 		if (map_view_ == nullptr)
 		{
