@@ -14,12 +14,13 @@ namespace Mythos::vulkan
 	struct swapchain_data
 	{
 		VkSwapchainKHR handle {};
-
+		std::vector<VkFramebuffer> frame_buffers {};
 		VkExtent2D extents {};
 		VkPresentModeKHR present_mode {};
 		VkSurfaceFormatKHR surface_format {};
 
 		std::vector<VkImage> images {};
+		std::vector<VkImageView> image_views;
 
 		struct support_data
 		{

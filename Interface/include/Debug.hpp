@@ -47,6 +47,7 @@ namespace Mythos::Debug
 		SetBehaviour(DEBUG_EXCEPTION_KEY, [](const std::string& msg, const std::source_location& source)
 		{
 			std::cout << "[exception] " << msg << '\n';
+			throw std::runtime_error(msg);
 		});
 
 		std::cout << "[debug] Default log behaviour has been set. \n \n";

@@ -18,6 +18,11 @@
     <None Include="Module.def">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="shaders\shader.vert" />
+    <None Include="shaders\shader.frag" />
+    <None Include="shaders\compile.bat">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="include\Module\renderer_module.cpp">
@@ -56,6 +61,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\Vulkan\mythos_vulkan.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Shader\shader.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Vulkan\graphics_pipeline.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -13,7 +13,7 @@ namespace Mythos::vulkan
 
 	auto make_unique_vulkan_data(bool set_validation = false) -> std::unique_ptr<vulkan_data>;
 
-	auto destroy_vulkan_data(vulkan_data& vulkan) -> void;
+	auto destroy_vulkan_data(const vulkan_data& vulkan) -> void;
 
 	auto create_instance(vulkan_data& vulkan) -> bool;
 
@@ -24,5 +24,13 @@ namespace Mythos::vulkan
 	auto create_logical_device(vulkan_data& vulkan) -> bool;
 
 	auto create_swapchain(void* hwnd, vulkan_data& vulkan) -> bool;
+
+	auto create_image_views(vulkan_data& vulkan) -> bool;
+
+	auto create_render_pass(vulkan_data& vulkan) -> bool;
+
+	auto create_graphics_pipeline(vulkan_data& vulkan) -> bool;
+
+	auto create_frame_buffers(vulkan_data& vulkan) -> bool;
 
 }
