@@ -22,6 +22,12 @@ namespace Mythos::vulkan
 
 	auto destroy_vulkan_data(const vulkan_data& vulkan) -> void
 	{
+		vkDestroySemaphore(vulkan.device.logical.handle, vulkan.image_available_semaphore, nullptr);
+		vkDestroySemaphore(vulkan.device.logical.handle, vulkan.render_finished_semaphore, nullptr);
+		vkDestroyFence(vulkan.device.logical.handle, vulkan.in_flight_fence, nullptr);
+
+		vkDestroyCommandPool(vulkan.device.logical.handle, vulkan.command_pool, nullptr);
+
 		for (const auto framebuffer : vulkan.swapchain.frame_buffers)
 		{
 			vkDestroyFramebuffer(vulkan.device.logical.handle, framebuffer, nullptr);
@@ -649,6 +655,14 @@ namespace Mythos::vulkan
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
 
+		VkSubpassDependency dependency{};
+		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency.dstSubpass = 0;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.srcAccessMask = 0;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
 		// create the render pass
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -656,6 +670,8 @@ namespace Mythos::vulkan
 		renderPassInfo.pAttachments = &colorAttachment;
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
+		renderPassInfo.dependencyCount = 1;
+		renderPassInfo.pDependencies = &dependency;
 
 		const auto success = vkCreateRenderPass(vulkan.device.logical.handle, &renderPassInfo, nullptr,
 		                                        &vulkan.graphics_pipeline.render_pass);
@@ -893,7 +909,7 @@ namespace Mythos::vulkan
 
 		for (size_t i = 0; i < image_views.size(); i++)
 		{
-			const VkImageView attachments[] = 
+			const VkImageView attachments[] =
 			{
 				image_views[i]
 			};
@@ -907,7 +923,8 @@ namespace Mythos::vulkan
 			framebuffer_info.height = extent.height;
 			framebuffer_info.layers = 1;
 
-			const auto success =vkCreateFramebuffer(vulkan.device.logical.handle, &framebuffer_info, nullptr, &frame_buffers[i]);
+			const auto success = vkCreateFramebuffer(vulkan.device.logical.handle, &framebuffer_info, nullptr,
+			                                         &frame_buffers[i]);
 			if (success != VK_SUCCESS)
 			{
 				Debug::error("Vulkan failed to create a framebuffer");
@@ -916,5 +933,196 @@ namespace Mythos::vulkan
 		}
 		Debug::log("Vulkan framebuffers created");
 		return true;
+	}
+
+	auto create_command_pool(vulkan_data& vulkan) -> bool
+	{
+		VkCommandPoolCreateInfo pool_info{};
+		pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		pool_info.queueFamilyIndex = vulkan.queues.graphics.family_indices.value();
+
+		const auto success = vkCreateCommandPool(vulkan.device.logical.handle, &pool_info, nullptr,
+		                                         &vulkan.command_pool);
+		if (success != VK_SUCCESS)
+		{
+			Debug::error("Vulkan failed to create command pool!");
+			return false;
+		}
+
+		Debug::log("Vulkan created command pool");
+		return true;
+	}
+
+	auto create_command_buffer(vulkan_data& vulkan) -> bool
+	{
+		VkCommandBufferAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.commandPool = vulkan.command_pool;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandBufferCount = 1;
+
+		const auto success = vkAllocateCommandBuffers(vulkan.device.logical.handle, &allocInfo, &vulkan.command_buffer);
+		if (success != VK_SUCCESS)
+		{
+			Debug::error("Vulkan failed to allocate command buffers");
+		}
+
+		Debug::log("Vulkan allocated command buffers");
+		return true;
+	}
+
+	auto create_sync_objects(vulkan_data& vulkan) -> bool
+	{
+		constexpr auto semaphore_info = VkSemaphoreCreateInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		};
+
+		constexpr auto fence_info = VkFenceCreateInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+			.flags = VK_FENCE_CREATE_SIGNALED_BIT,
+		};
+
+		// create the semaphore
+		const auto result_1 = vkCreateSemaphore(vulkan.device.logical.handle, &semaphore_info, nullptr, &vulkan.image_available_semaphore);
+		const auto result_2 = vkCreateSemaphore(vulkan.device.logical.handle, &semaphore_info, nullptr, &vulkan.render_finished_semaphore);
+		if (result_1 != VK_SUCCESS || result_2 != VK_SUCCESS)
+		{
+			Debug::error("Vulkan failed to create the semaphores");
+			return false;
+		}
+
+		// create the fence
+		auto result_3 = vkCreateFence(vulkan.device.logical.handle, &fence_info, nullptr, &vulkan.in_flight_fence);
+		if(result_3 != VK_SUCCESS)
+		{
+			Debug::error("Vulkan failed to create the fence");
+			return false;
+		}
+
+		Debug::log("Vulkan created the synchronization objects");
+		return true;
+	}
+
+	auto record_command_buffer(vulkan_data& vulkan, uint32_t image_index) -> void
+	{
+		const auto& command_buffer = vulkan.command_buffer;
+		const auto& render_pass = vulkan.graphics_pipeline.render_pass;
+		const auto& frame_buffers = vulkan.swapchain.frame_buffers;
+		const auto& swapchain_extent = vulkan.swapchain.extents;
+
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = 0;
+		beginInfo.pInheritanceInfo = nullptr;
+
+		auto success = vkBeginCommandBuffer(command_buffer, &beginInfo);
+		if (success != VK_SUCCESS)
+		{
+			Debug::error("Vulkan failed to begin recording command buffer");
+		}
+
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = render_pass;
+		renderPassInfo.framebuffer = frame_buffers[image_index];
+
+		renderPassInfo.renderArea.offset = {0, 0};
+		renderPassInfo.renderArea.extent = swapchain_extent;
+
+		VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+		renderPassInfo.clearValueCount = 1;
+		renderPassInfo.pClearValues = &clear_color;
+
+		// begin render pass
+		vkCmdBeginRenderPass(command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		// bind the graphics pipeline
+		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan.graphics_pipeline.handle);
+
+		// these get set here because we have set them to be dynamic
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = static_cast<float>(swapchain_extent.width);
+		viewport.height = static_cast<float>(swapchain_extent.height);
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+		VkRect2D scissor{};
+		scissor.offset = {0, 0};
+		scissor.extent = swapchain_extent;
+		vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+
+		// draw command
+		vkCmdDraw(command_buffer, 3, 1, 0, 0);
+
+		// end the render pass
+		vkCmdEndRenderPass(command_buffer);
+
+		success = vkEndCommandBuffer(command_buffer);
+		if (success != VK_SUCCESS)
+		{
+			Debug::error("failed to record command buffer!");
+		}
+	}
+
+	auto draw_frame(vulkan_data& vulkan) -> void
+	{
+		vkWaitForFences(vulkan.device.logical.handle, 1, &vulkan.in_flight_fence, VK_TRUE, UINT64_MAX);
+		vkResetFences(vulkan.device.logical.handle, 1, &vulkan.in_flight_fence);
+
+		auto image_index = uint32_t();
+		vkAcquireNextImageKHR(vulkan.device.logical.handle, vulkan.swapchain.handle, UINT64_MAX, vulkan.image_available_semaphore, VK_NULL_HANDLE, &image_index);
+
+		vkResetCommandBuffer(vulkan.command_buffer, 0);
+
+		record_command_buffer(vulkan, image_index);
+
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+		VkSemaphore waitSemaphores[] = { vulkan.image_available_semaphore };
+		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = waitSemaphores;
+		submitInfo.pWaitDstStageMask = waitStages;
+
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &vulkan.command_buffer;
+
+		VkSemaphore signalSemaphores[] = { vulkan.render_finished_semaphore };
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = signalSemaphores;
+
+		auto success = vkQueueSubmit(vulkan.queues.graphics.handle, 1, &submitInfo, vulkan.in_flight_fence);
+		if(success!= VK_SUCCESS) 
+		{
+			throw std::runtime_error("Vulkan failed to submit draw command buffer");
+			return;
+		}
+
+		VkPresentInfoKHR presentInfo{};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = signalSemaphores;
+
+		VkSwapchainKHR swapChains[] = { vulkan.swapchain.handle };
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = swapChains;
+		presentInfo.pImageIndices = &image_index;
+
+		presentInfo.pResults = nullptr;
+
+		success = vkQueuePresentKHR(vulkan.queues.present.handle, &presentInfo);
+		if(success != VK_SUCCESS)
+		{
+			throw std::runtime_error("Vulkan failed to submit to the present queue");
+		}
 	}
 }

@@ -46,10 +46,9 @@ Mythos::Application::~Application()
 
 void Mythos::Application::Run()
 {
-
 	while (is_running_)
 	{
-		for (const auto& layer : layers_)
+		for (auto& layer : layers_)
 		{
 			layer->update();
 			layer->render();

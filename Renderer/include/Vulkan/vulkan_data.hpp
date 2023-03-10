@@ -31,6 +31,15 @@ namespace Mythos::vulkan
 		swapchain_data swapchain {};
 		graphics_pipeline_data graphics_pipeline{};
 
+		VkCommandPool command_pool = VK_NULL_HANDLE;
+
+		VkCommandBuffer command_buffer = VK_NULL_HANDLE;
+
+		// sync objects
+		VkSemaphore image_available_semaphore;
+		VkSemaphore render_finished_semaphore;
+		VkFence in_flight_fence;
+
 	private:
 		std::function<void()> destructor_callback_ = nullptr;
 
