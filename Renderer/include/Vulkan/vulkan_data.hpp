@@ -42,7 +42,10 @@ namespace Mythos::vulkan
 		~vulkan_data() = default;
 
 		// validation
-		const bool validation_enabled = {};
+		const bool validation_enabled;
+
+		// constants
+		const int MAX_FRAMES_IN_FLIGHT = 2;
 
 		// application
 		VkApplicationInfo application_info = {};
@@ -59,17 +62,22 @@ namespace Mythos::vulkan
 
 		VkCommandPool command_pool = VK_NULL_HANDLE;
 		VkPipeline graphics_pipeline = VK_NULL_HANDLE;
-		VkCommandBuffer command_buffer = VK_NULL_HANDLE;
 
-		VkFence in_flight_fence = VK_NULL_HANDLE;
-		VkSemaphore image_available_semaphore = VK_NULL_HANDLE;
-		VkSemaphore render_finished_semaphore = VK_NULL_HANDLE;
+		std::vector<VkCommandBuffer> command_buffers = {};
+
+		std::vector<VkFence> in_flight_fences = {};
+		std::vector<VkSemaphore> image_available_semaphores = {};
+		std::vector<VkSemaphore> render_finished_semaphores = {};
 
 		// create info
 		VkDeviceCreateInfo device_create_info = {};
 		VkInstanceCreateInfo instance_create_info = {};
 		VkSwapchainCreateInfoKHR swapchain_create_info{};
 		VkWin32SurfaceCreateInfoKHR surface_create_info = {};
+
+		VkFenceCreateInfo fence_create_info = {};
+		VkSemaphoreCreateInfo semaphore_create_info = {};
+
 
 		std::vector<VkDeviceQueueCreateInfo> device_queue_create_infos = {};
 
@@ -106,6 +114,7 @@ namespace Mythos::vulkan
 		swapchain_support_details;
 
 		// graphics pipeline
+		int current_frame = 0;
 		std::vector<VkImage> images{};
 		std::vector<VkImageView> image_views{};
 		std::vector<VkFramebuffer> frame_buffers{};
@@ -155,6 +164,17 @@ namespace Mythos::vulkan
 		device_extensions = std::vector<const char*>
 		{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
+		};
+
+		semaphore_create_info = VkSemaphoreCreateInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		};
+
+		fence_create_info = VkFenceCreateInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+			.flags = VK_FENCE_CREATE_SIGNALED_BIT,
 		};
 	}
 }

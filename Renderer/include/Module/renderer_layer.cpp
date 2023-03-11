@@ -55,7 +55,7 @@ namespace Mythos
 		success = vulkan::create_command_pool(*vulkan_data_);
 		if (!success) return;
 
-		success = vulkan::create_command_buffer(*vulkan_data_);
+		success = vulkan::create_command_buffers(*vulkan_data_);
 		if (!success) return;
 
 		success = vulkan::create_sync_objects(*vulkan_data_);
@@ -75,6 +75,7 @@ namespace Mythos
 	void Mythos::renderer_layer::render()
 	{
 		vulkan::draw_frame(*vulkan_data_);
+
 		vkDeviceWaitIdle(vulkan_data_->device);
 	}
 

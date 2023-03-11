@@ -35,7 +35,7 @@ namespace Mythos::vulkan
 
 	auto create_command_pool(vulkan_data& vulkan) -> bool;
 
-	auto create_command_buffer(vulkan_data& vulkan) -> bool;
+	auto create_command_buffers(vulkan_data& vulkan) -> bool;
 
 	auto create_sync_objects(vulkan_data& vulkan) -> bool;
 

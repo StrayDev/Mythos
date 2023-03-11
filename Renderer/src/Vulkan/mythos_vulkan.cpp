@@ -22,11 +22,12 @@ namespace Mythos::vulkan
 
 	auto destroy_vulkan_data(const vulkan_data& vulkan) -> void
 	{
-		vkDestroySemaphore(vulkan.device, vulkan.image_available_semaphore, nullptr);
-
-		vkDestroySemaphore(vulkan.device, vulkan.render_finished_semaphore, nullptr);
-
-		vkDestroyFence(vulkan.device, vulkan.in_flight_fence, nullptr);
+		for(auto i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT;i++)
+		{
+			vkDestroySemaphore(vulkan.device, vulkan.image_available_semaphores[i], nullptr);
+			vkDestroySemaphore(vulkan.device, vulkan.render_finished_semaphores[i], nullptr);
+			vkDestroyFence(vulkan.device, vulkan.in_flight_fences[i], nullptr);
+		}
 
 		vkDestroyCommandPool(vulkan.device, vulkan.command_pool, nullptr);
 
@@ -973,15 +974,17 @@ namespace Mythos::vulkan
 		return true;
 	}
 
-	auto create_command_buffer(vulkan_data& vulkan) -> bool
+	auto create_command_buffers(vulkan_data& vulkan) -> bool
 	{
+		vulkan.command_buffers.resize(vulkan.MAX_FRAMES_IN_FLIGHT);
+
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.commandPool = vulkan.command_pool;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandBufferCount = 1;
+		allocInfo.commandBufferCount = static_cast<uint32_t>(vulkan.command_buffers.size());
 
-		const auto success = vkAllocateCommandBuffers(vulkan.device, &allocInfo, &vulkan.command_buffer);
+		const auto success = vkAllocateCommandBuffers(vulkan.device, &allocInfo, vulkan.command_buffers.data());
 		if (success != VK_SUCCESS)
 		{
 			Debug::error("Vulkan failed to allocate command buffers");
@@ -993,34 +996,32 @@ namespace Mythos::vulkan
 
 	auto create_sync_objects(vulkan_data& vulkan) -> bool
 	{
-		constexpr auto semaphore_info = VkSemaphoreCreateInfo
-		{
-			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-		};
+		vulkan.image_available_semaphores.resize(vulkan.MAX_FRAMES_IN_FLIGHT);
+		vulkan.render_finished_semaphores.resize(vulkan.MAX_FRAMES_IN_FLIGHT);
+		vulkan.in_flight_fences.resize(vulkan.MAX_FRAMES_IN_FLIGHT);
 
-		constexpr auto fence_info = VkFenceCreateInfo
-		{
-			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-			.flags = VK_FENCE_CREATE_SIGNALED_BIT,
-		};
+		auto result = false;
+		auto result_2 = false;
 
-		// create the semaphore
-		const auto result_1 = vkCreateSemaphore(vulkan.device, &semaphore_info, nullptr,
-		                                        &vulkan.image_available_semaphore);
-		const auto result_2 = vkCreateSemaphore(vulkan.device, &semaphore_info, nullptr,
-		                                        &vulkan.render_finished_semaphore);
-		if (result_1 != VK_SUCCESS || result_2 != VK_SUCCESS)
+		for (auto i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			Debug::error("Vulkan failed to create the semaphores");
-			return false;
+			result = vkCreateSemaphore(vulkan.device, &vulkan.semaphore_create_info, nullptr, &vulkan.image_available_semaphores[i]);
+			result_2 = vkCreateSemaphore(vulkan.device, &vulkan.semaphore_create_info, nullptr, &vulkan.render_finished_semaphores[i]);
+			if (result != VK_SUCCESS || result_2 != VK_SUCCESS)
+			{
+				Debug::error("Vulkan failed to create the semaphores");
+				return false;
+			}
 		}
 
-		// create the fence
-		auto result_3 = vkCreateFence(vulkan.device, &fence_info, nullptr, &vulkan.in_flight_fence);
-		if (result_3 != VK_SUCCESS)
+		for (auto i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			Debug::error("Vulkan failed to create the fence");
-			return false;
+			result =vkCreateFence(vulkan.device, &vulkan.fence_create_info, nullptr, &vulkan.in_flight_fences[i]);
+			if (result != VK_SUCCESS)
+			{
+				Debug::error("Vulkan failed to create the fences");
+				return false;
+			}
 		}
 
 		Debug::log("Vulkan created the synchronization objects");
@@ -1029,7 +1030,7 @@ namespace Mythos::vulkan
 
 	auto record_command_buffer(vulkan_data& vulkan, uint32_t image_index) -> void
 	{
-		const auto& command_buffer = vulkan.command_buffer;
+		const auto& command_buffer = vulkan.command_buffers[vulkan.current_frame];
 		const auto& render_pass = vulkan.render_pass;
 		const auto& frame_buffers = vulkan.frame_buffers;
 		const auto& swapchain_extent = vulkan.swapchain_extents;
@@ -1094,34 +1095,36 @@ namespace Mythos::vulkan
 
 	auto draw_frame(vulkan_data& vulkan) -> void
 	{
-		vkWaitForFences(vulkan.device, 1, &vulkan.in_flight_fence, VK_TRUE, UINT64_MAX);
-		vkResetFences(vulkan.device, 1, &vulkan.in_flight_fence);
+		const auto i = vulkan.current_frame;
+
+		vkWaitForFences(vulkan.device, 1, &vulkan.in_flight_fences[i], VK_TRUE, UINT64_MAX);
+		vkResetFences(vulkan.device, 1, &vulkan.in_flight_fences[i]);
 
 		auto image_index = uint32_t();
-		vkAcquireNextImageKHR(vulkan.device, vulkan.swapchain, UINT64_MAX, vulkan.image_available_semaphore,
+		vkAcquireNextImageKHR(vulkan.device, vulkan.swapchain, UINT64_MAX, vulkan.image_available_semaphores[i],
 		                      VK_NULL_HANDLE, &image_index);
 
-		vkResetCommandBuffer(vulkan.command_buffer, 0);
+		vkResetCommandBuffer(vulkan.command_buffers[i], 0);
 
 		record_command_buffer(vulkan, image_index);
 
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		VkSemaphore waitSemaphores[] = {vulkan.image_available_semaphore};
+		VkSemaphore waitSemaphores[] = {vulkan.image_available_semaphores[i]};
 		VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
 
 		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &vulkan.command_buffer;
+		submitInfo.pCommandBuffers = &vulkan.command_buffers[i];
 
-		VkSemaphore signalSemaphores[] = {vulkan.render_finished_semaphore};
+		VkSemaphore signalSemaphores[] = {vulkan.render_finished_semaphores[i]};
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		auto success = vkQueueSubmit(vulkan.graphics_queue, 1, &submitInfo, vulkan.in_flight_fence);
+		auto success = vkQueueSubmit(vulkan.graphics_queue, 1, &submitInfo, vulkan.in_flight_fences[i]);
 		if (success != VK_SUCCESS)
 		{
 			throw std::runtime_error("Vulkan failed to submit draw command buffer");
@@ -1146,5 +1149,7 @@ namespace Mythos::vulkan
 		{
 			//throw std::runtime_error("Vulkan failed to submit to the present queue");
 		}
+
+		vulkan.current_frame = (i + 1) % vulkan.MAX_FRAMES_IN_FLIGHT;
 	}
 }
