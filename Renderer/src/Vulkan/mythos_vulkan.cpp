@@ -20,44 +20,6 @@ namespace Mythos::vulkan
 		return std::make_unique<vulkan_data>(set_validation);
 	}
 
-	auto destroy_vulkan_data(const vulkan_data& vulkan) -> void
-	{
-		for(auto i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT;i++)
-		{
-			vkDestroySemaphore(vulkan.device, vulkan.image_available_semaphores[i], nullptr);
-			vkDestroySemaphore(vulkan.device, vulkan.render_finished_semaphores[i], nullptr);
-			vkDestroyFence(vulkan.device, vulkan.in_flight_fences[i], nullptr);
-		}
-
-		vkDestroyCommandPool(vulkan.device, vulkan.command_pool, nullptr);
-
-		for (const auto framebuffer : vulkan.frame_buffers)
-		{
-			vkDestroyFramebuffer(vulkan.device, framebuffer, nullptr);
-		}
-
-		vkDestroyPipeline(vulkan.device, vulkan.graphics_pipeline, nullptr);
-
-		vkDestroyPipelineLayout(vulkan.device, vulkan.pipeline_layout, nullptr);
-
-		vkDestroyRenderPass(vulkan.device, vulkan.render_pass, nullptr);
-
-		for (const auto& image_view : vulkan.image_views)
-		{
-			vkDestroyImageView(vulkan.device, image_view, nullptr);
-		}
-
-		vkDestroySwapchainKHR(vulkan.device, vulkan.swapchain, nullptr);
-
-		vkDestroyDevice(vulkan.device, nullptr);
-
-		vkDestroySurfaceKHR(vulkan.instance, vulkan.surface, nullptr);
-
-		vkDestroyInstance(vulkan.instance, nullptr);
-
-		Debug::log_header("Vulkan objects destroyed");
-	}
-
 	static auto get_available_instance_extensions(vulkan_data& vulkan) -> void
 	{
 		// create extension container
@@ -284,7 +246,8 @@ namespace Mythos::vulkan
 
 	auto swapchain_is_supported(const vulkan_data& vulkan) -> bool
 	{
-		return !vulkan.swapchain_support_details.image_formats.empty() && !vulkan.swapchain_support_details.present_modes.empty();
+		return !vulkan.swapchain_support_details.image_formats.empty() && !vulkan.swapchain_support_details.
+			present_modes.empty();
 	}
 
 
@@ -904,7 +867,8 @@ namespace Mythos::vulkan
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = -1; // Optional
 
-		success = vkCreateGraphicsPipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &vulkan.graphics_pipeline);
+		success = vkCreateGraphicsPipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
+		                                    &vulkan.graphics_pipeline);
 		if (success != VK_SUCCESS)
 		{
 			Debug::error("Vulkan failed to create graphics pipeline");
@@ -1005,8 +969,10 @@ namespace Mythos::vulkan
 
 		for (auto i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			result = vkCreateSemaphore(vulkan.device, &vulkan.semaphore_create_info, nullptr, &vulkan.image_available_semaphores[i]);
-			result_2 = vkCreateSemaphore(vulkan.device, &vulkan.semaphore_create_info, nullptr, &vulkan.render_finished_semaphores[i]);
+			result = vkCreateSemaphore(vulkan.device, &vulkan.semaphore_create_info, nullptr,
+			                           &vulkan.image_available_semaphores[i]);
+			result_2 = vkCreateSemaphore(vulkan.device, &vulkan.semaphore_create_info, nullptr,
+			                             &vulkan.render_finished_semaphores[i]);
 			if (result != VK_SUCCESS || result_2 != VK_SUCCESS)
 			{
 				Debug::error("Vulkan failed to create the semaphores");
@@ -1016,7 +982,7 @@ namespace Mythos::vulkan
 
 		for (auto i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			result =vkCreateFence(vulkan.device, &vulkan.fence_create_info, nullptr, &vulkan.in_flight_fences[i]);
+			result = vkCreateFence(vulkan.device, &vulkan.fence_create_info, nullptr, &vulkan.in_flight_fences[i]);
 			if (result != VK_SUCCESS)
 			{
 				Debug::error("Vulkan failed to create the fences");
@@ -1151,5 +1117,62 @@ namespace Mythos::vulkan
 		}
 
 		vulkan.current_frame = (i + 1) % vulkan.MAX_FRAMES_IN_FLIGHT;
+	}
+
+	auto clean_up_swapchain(vulkan_data& vulkan) -> void
+	{
+		for (size_t i = 0; i < vulkan.frame_buffers.size(); i++)
+		{
+			vkDestroyFramebuffer(vulkan.device, vulkan.frame_buffers[i], nullptr);
+		}
+
+		for (size_t i = 0; i < vulkan.image_views.size(); i++)
+		{
+			vkDestroyImageView(vulkan.device, vulkan.image_views[i], nullptr);
+		}
+
+		vkDestroySwapchainKHR(vulkan.device, vulkan.swapchain, nullptr);
+	}
+
+	auto recreate_swapchain(void* hwnd, vulkan_data& vulkan) -> void
+	{
+		vkDeviceWaitIdle(vulkan.device);
+
+		clean_up_swapchain(vulkan);
+
+		create_swapchain(hwnd, vulkan);
+		create_image_views(vulkan);
+		create_frame_buffers(vulkan);
+	}
+
+	auto destroy_vulkan_data(vulkan_data& vulkan) -> void
+	{
+		clean_up_swapchain(vulkan);
+
+		vkDestroyPipeline(vulkan.device, vulkan.graphics_pipeline, nullptr);
+		vkDestroyPipelineLayout(vulkan.device, vulkan.pipeline_layout, nullptr);
+
+		vkDestroyRenderPass(vulkan.device, vulkan.render_pass, nullptr);
+
+		for (auto i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			vkDestroySemaphore(vulkan.device, vulkan.image_available_semaphores[i], nullptr);
+			vkDestroySemaphore(vulkan.device, vulkan.render_finished_semaphores[i], nullptr);
+			vkDestroyFence(vulkan.device, vulkan.in_flight_fences[i], nullptr);
+		}
+
+		vkDestroyCommandPool(vulkan.device, vulkan.command_pool, nullptr);
+
+		vkDestroyDevice(vulkan.device, nullptr);
+
+		if(vulkan.validation_enabled)
+		{
+			//DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+		}
+
+		vkDestroySurfaceKHR(vulkan.instance, vulkan.surface, nullptr);
+		vkDestroyInstance(vulkan.instance, nullptr);
+
+		Debug::log_header("Vulkan objects destroyed");
 	}
 }

@@ -42,6 +42,12 @@ Mythos::Application::Application()
 Mythos::Application::~Application()
 {
 	Debug::log("Application Destroyed");
+
+	// destroy layers lowest priority first
+	for(auto i = layers_.size() ; !layers_.empty(); --i)
+	{
+		layers_.pop_back();
+	}
 }
 
 void Mythos::Application::Run()
