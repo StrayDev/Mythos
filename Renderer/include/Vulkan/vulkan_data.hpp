@@ -37,19 +37,88 @@ namespace Mythos::vulkan
 
 	struct vulkan_data
 	{
-		explicit vulkan_data(bool enable_validation = true) : validation_enabled(enable_validation) {}
+		vulkan_data(bool enable_validation = true);
+
 		~vulkan_data() = default;
 
 		// validation
-		const bool validation_enabled;
-
-		const std::vector<const char*> validation_layers
-		{
-			"VK_LAYER_KHRONOS_validation",
-		};
+		const bool validation_enabled = {};
 
 		// application
-		VkApplicationInfo application_info
+		VkApplicationInfo application_info = {};
+
+		// handles
+		VkDevice device = VK_NULL_HANDLE;
+		VkInstance instance = VK_NULL_HANDLE;
+		VkSurfaceKHR surface = VK_NULL_HANDLE;
+		VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+		VkPhysicalDevice physical_device = VK_NULL_HANDLE;
+
+		VkQueue present_queue = VK_NULL_HANDLE;
+		VkQueue graphics_queue = VK_NULL_HANDLE;
+
+		VkCommandPool command_pool = VK_NULL_HANDLE;
+		VkPipeline graphics_pipeline = VK_NULL_HANDLE;
+		VkCommandBuffer command_buffer = VK_NULL_HANDLE;
+
+		VkFence in_flight_fence = VK_NULL_HANDLE;
+		VkSemaphore image_available_semaphore = VK_NULL_HANDLE;
+		VkSemaphore render_finished_semaphore = VK_NULL_HANDLE;
+
+		// create info
+		VkDeviceCreateInfo device_create_info = {};
+		VkInstanceCreateInfo instance_create_info = {};
+		VkSwapchainCreateInfoKHR swapchain_create_info{};
+		VkWin32SurfaceCreateInfoKHR surface_create_info = {};
+
+		std::vector<VkDeviceQueueCreateInfo> device_queue_create_infos = {};
+
+		// layers
+		std::vector<const char*> validation_layers = {};
+		std::vector<const char*> required_layers = {};
+		std::vector<VkLayerProperties> available_layers = {};
+
+		// extensions
+		std::vector<const char*> required_extensions = {};
+		std::vector<VkExtensionProperties> extensions = {};
+		std::vector<VkExtensionProperties> available_extensions = {};
+
+		// device
+		std::vector<const char*> device_extensions = {};
+		std::vector<VkPhysicalDevice> available_devices = {};
+		VkPhysicalDeviceFeatures physical_device_features = {};
+
+		// queues family indices
+		std::optional<uint32_t> graphics_queue_family_indices{};
+		std::optional<uint32_t> present_queue_family_indices{};
+
+		// swapchain
+		VkExtent2D swapchain_extents{};
+		VkPresentModeKHR swapchain_present_mode{};
+		VkSurfaceFormatKHR swapchain_surface_format{};
+
+		struct swapchain_support_details
+		{
+			VkSurfaceCapabilitiesKHR capabilities{};
+			std::vector<VkPresentModeKHR> present_modes{};
+			std::vector<VkSurfaceFormatKHR> image_formats{};
+		}
+		swapchain_support_details;
+
+		// graphics pipeline
+		std::vector<VkImage> images{};
+		std::vector<VkImageView> image_views{};
+		std::vector<VkFramebuffer> frame_buffers{};
+
+		//graphics pipeline
+		VkPipelineLayout pipeline_layout{};
+		VkRenderPass render_pass{};
+
+	};
+
+	inline vulkan_data::vulkan_data(bool enable_validation): validation_enabled(enable_validation)
+	{
+		application_info = VkApplicationInfo
 		{
 			.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 			.pApplicationName = "Vulkan Renderer",
@@ -59,22 +128,18 @@ namespace Mythos::vulkan
 			.apiVersion = VK_API_VERSION_1_0
 		};
 
-		std::vector<const char*> required_layers{};
-		std::vector<VkLayerProperties> available_layers{};
+		validation_layers = std::vector<const char*>
+		{
+			"VK_LAYER_KHRONOS_validation",
+		};
 
-		std::vector<VkExtensionProperties> extensions{};
-		std::vector<VkExtensionProperties> available_extensions{};
-
-		const std::vector<const char*> required_extensions
+		required_extensions = std::vector<const char*>
 		{
 			"VK_KHR_surface",
 			"VK_KHR_win32_surface",
 		};
 
-		// instance data
-		VkInstance instance = VK_NULL_HANDLE;
-
-		VkInstanceCreateInfo instance_create_info
+		instance_create_info = VkInstanceCreateInfo
 		{
 			.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 			.pApplicationInfo = &application_info,
@@ -82,69 +147,14 @@ namespace Mythos::vulkan
 			.ppEnabledExtensionNames = required_extensions.data()
 		};
 
-		// surface data
-		VkSurfaceKHR surface = VK_NULL_HANDLE;
-
-		VkWin32SurfaceCreateInfoKHR surface_create_info
+		surface_create_info = VkWin32SurfaceCreateInfoKHR
 		{
 			.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
 		};
 
-		// device data
-		VkDevice device = VK_NULL_HANDLE;
-		VkDeviceCreateInfo device_create_info {};
-		std::vector<VkDeviceQueueCreateInfo> device_queue_create_infos{};
-
-		VkPhysicalDevice physical_device = VK_NULL_HANDLE;
-		VkPhysicalDeviceFeatures physical_device_features{};
-		std::vector<VkPhysicalDevice> available_devices {};
-
-		const std::vector<const char*> device_extensions =
+		device_extensions = std::vector<const char*>
 		{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
 		};
-
-		// queues
-		VkQueue graphics_queue = VK_NULL_HANDLE;
-		std::optional<uint32_t> graphics_queue_family_indices{};
-
-		VkQueue present_queue = VK_NULL_HANDLE;
-		std::optional<uint32_t> present_queue_family_indices{};
-
-		// swapchain
-		VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-		VkSwapchainCreateInfoKHR swapchain_create_info{};
-
-		VkExtent2D swapchain_extents{};
-		VkPresentModeKHR swapchain_present_mode{};
-		VkSurfaceFormatKHR swapchain_surface_format{};
-
-		std::vector<VkImage> images {};
-		std::vector<VkImageView> image_views {};
-		std::vector<VkFramebuffer> frame_buffers {};
-
-		struct swapchain_support_details
-		{
-			VkSurfaceCapabilitiesKHR capabilities{};
-			std::vector<VkSurfaceFormatKHR> image_formats{};
-			std::vector<VkPresentModeKHR> present_modes{};
-		}
-		swapchain_support_details;
-
-		//graphics pipeline
-		VkPipeline graphics_pipeline = VK_NULL_HANDLE;
-		VkPipelineLayout pipeline_layout{};
-		VkRenderPass render_pass{};
-
-		// command
-		VkCommandPool command_pool = VK_NULL_HANDLE;
-		VkCommandBuffer command_buffer = VK_NULL_HANDLE;
-
-		// sync objects
-		VkSemaphore image_available_semaphore = VK_NULL_HANDLE;
-		VkSemaphore render_finished_semaphore = VK_NULL_HANDLE;
-		VkFence in_flight_fence = VK_NULL_HANDLE;
-
-	};
-
+	}
 }

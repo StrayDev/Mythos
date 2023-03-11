@@ -21,12 +21,12 @@ namespace Mythos
 
 		auto success = false;
 
-		success = vulkan::create_instance(*vulkan_data_);
-		if (!success) return;
-
 		// TODO: get windows handles by event
 		auto* hwnd = GetForegroundWindow();
 		auto* hmodule = GetModuleHandle(nullptr);
+
+		success = vulkan::create_instance(*vulkan_data_);
+		if (!success) return;
 
 		success = vulkan::create_surface(hmodule, hwnd, *vulkan_data_);
 		if (!success) return;
@@ -75,7 +75,6 @@ namespace Mythos
 	void Mythos::renderer_layer::render()
 	{
 		vulkan::draw_frame(*vulkan_data_);
-
 		vkDeviceWaitIdle(vulkan_data_->device);
 	}
 
