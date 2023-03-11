@@ -19,13 +19,6 @@ namespace Mythos
 
 		vulkan_data_ = Mythos::vulkan::make_unique_vulkan_data(true);
 
-		/*vulkan_data_->set_destructor_callback( [&]()
-		{
-			// TODO: uncomment this line once application shutdown is properly managed
-			// passing in an empty lambda will disable the warning msg 
-			// vulkan::destroy_vulkan_data(*vulkan_data_);
-		});*/
-
 		auto success = false;
 
 		success = vulkan::create_instance(*vulkan_data_);
@@ -72,7 +65,7 @@ namespace Mythos
 
 	Mythos::renderer_layer::~renderer_layer()
 	{
-
+		vulkan::destroy_vulkan_data(*vulkan_data_);
 	}
 
 	void Mythos::renderer_layer::update()
@@ -82,6 +75,8 @@ namespace Mythos
 	void Mythos::renderer_layer::render()
 	{
 		vulkan::draw_frame(*vulkan_data_);
+
+		vkDeviceWaitIdle(vulkan_data_->device);
 	}
 
 }

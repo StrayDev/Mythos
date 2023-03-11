@@ -139,25 +139,20 @@
   <ItemGroup>
     <None Include="Module.def" />
     <None Include="shaders\compile.bat" />
+    <None Include="shaders\frag.spv" />
     <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
+    <None Include="shaders\vert.spv" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="include\Module\renderer_layer.cpp" />
     <ClCompile Include="include\Module\renderer_module.cpp" />
     <ClCompile Include="src\Vulkan\mythos_vulkan.cpp" />
-    <ClCompile Include="src\Vulkan\vulkan_data.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Module\renderer_layer.hpp" />
-    <ClInclude Include="include\Vulkan\device_data.hpp" />
-    <ClInclude Include="include\Vulkan\graphics_pipeline.hpp" />
-    <ClInclude Include="include\Vulkan\instance_data.hpp" />
     <ClInclude Include="include\Vulkan\mythos_vulkan.hpp" />
     <ClInclude Include="include\Shader\shader.hpp" />
-    <ClInclude Include="include\Vulkan\surface_data.hpp" />
-    <ClInclude Include="include\Vulkan\swapchain_data.hpp" />
-    <ClInclude Include="include\Vulkan\queues_data.hpp" />
     <ClInclude Include="include\Vulkan\vulkan_data.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

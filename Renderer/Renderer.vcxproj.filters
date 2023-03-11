@@ -23,15 +23,14 @@
     <None Include="shaders\compile.bat">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="shaders\frag.spv" />
+    <None Include="shaders\vert.spv" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="include\Module\renderer_module.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="include\Module\renderer_layer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Vulkan\vulkan_data.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Vulkan\mythos_vulkan.cpp">
@@ -45,28 +44,10 @@
     <ClInclude Include="include\Vulkan\vulkan_data.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\Vulkan\device_data.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Vulkan\queues_data.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Vulkan\swapchain_data.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Vulkan\instance_data.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Vulkan\surface_data.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\Vulkan\mythos_vulkan.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\Shader\shader.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Vulkan\graphics_pipeline.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

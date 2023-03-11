@@ -22,30 +22,37 @@ namespace Mythos::vulkan
 
 	auto destroy_vulkan_data(const vulkan_data& vulkan) -> void
 	{
-		vkDestroySemaphore(vulkan.device.logical.handle, vulkan.image_available_semaphore, nullptr);
-		vkDestroySemaphore(vulkan.device.logical.handle, vulkan.render_finished_semaphore, nullptr);
-		vkDestroyFence(vulkan.device.logical.handle, vulkan.in_flight_fence, nullptr);
+		vkDestroySemaphore(vulkan.device, vulkan.image_available_semaphore, nullptr);
 
-		vkDestroyCommandPool(vulkan.device.logical.handle, vulkan.command_pool, nullptr);
+		vkDestroySemaphore(vulkan.device, vulkan.render_finished_semaphore, nullptr);
 
-		for (const auto framebuffer : vulkan.swapchain.frame_buffers)
+		vkDestroyFence(vulkan.device, vulkan.in_flight_fence, nullptr);
+
+		vkDestroyCommandPool(vulkan.device, vulkan.command_pool, nullptr);
+
+		for (const auto framebuffer : vulkan.frame_buffers)
 		{
-			vkDestroyFramebuffer(vulkan.device.logical.handle, framebuffer, nullptr);
+			vkDestroyFramebuffer(vulkan.device, framebuffer, nullptr);
 		}
 
-		vkDestroyPipeline(vulkan.device.logical.handle, vulkan.graphics_pipeline.handle, nullptr);
-		vkDestroyPipelineLayout(vulkan.device.logical.handle, vulkan.graphics_pipeline.layout, nullptr);
-		vkDestroyRenderPass(vulkan.device.logical.handle, vulkan.graphics_pipeline.render_pass, nullptr);
+		vkDestroyPipeline(vulkan.device, vulkan.graphics_pipeline, nullptr);
 
-		for (const auto& image_view : vulkan.swapchain.image_views)
+		vkDestroyPipelineLayout(vulkan.device, vulkan.pipeline_layout, nullptr);
+
+		vkDestroyRenderPass(vulkan.device, vulkan.render_pass, nullptr);
+
+		for (const auto& image_view : vulkan.image_views)
 		{
-			vkDestroyImageView(vulkan.device.logical.handle, image_view, nullptr);
+			vkDestroyImageView(vulkan.device, image_view, nullptr);
 		}
 
-		vkDestroySwapchainKHR(vulkan.device.logical.handle, vulkan.swapchain.handle, nullptr);
-		vkDestroyDevice(vulkan.device.logical.handle, nullptr);
-		vkDestroySurfaceKHR(vulkan.instance.handle, vulkan.surface.handle, nullptr);
-		vkDestroyInstance(vulkan.instance.handle, nullptr);
+		vkDestroySwapchainKHR(vulkan.device, vulkan.swapchain, nullptr);
+
+		vkDestroyDevice(vulkan.device, nullptr);
+
+		vkDestroySurfaceKHR(vulkan.instance, vulkan.surface, nullptr);
+
+		vkDestroyInstance(vulkan.instance, nullptr);
 
 		Debug::log_header("Vulkan objects destroyed");
 	}
@@ -64,7 +71,7 @@ namespace Mythos::vulkan
 		// add to the data object
 		for (const auto extension : extensions)
 		{
-			vulkan.instance.available_extensions.push_back(extension);
+			vulkan.available_extensions.push_back(extension);
 		}
 	}
 
@@ -72,7 +79,7 @@ namespace Mythos::vulkan
 	{
 #if _DEBUG
 		Debug::log_header("Vulkan available instance extensions : ");
-		for (const auto& extension : vulkan.instance.available_extensions)
+		for (const auto& extension : vulkan.available_extensions)
 		{
 			Debug::log(" >> " + std::string(extension.extensionName));
 		}
@@ -82,12 +89,12 @@ namespace Mythos::vulkan
 	static auto required_instance_extensions_available(const vulkan_data& vulkan) -> bool
 	{
 		std::vector<const char*> available_extensions;
-		for (const auto [extensionName, specVersion] : vulkan.instance.available_extensions)
+		for (const auto [extensionName, specVersion] : vulkan.available_extensions)
 		{
 			available_extensions.push_back(extensionName);
 		}
 
-		for (const auto& required_extension : vulkan.instance.required_extensions)
+		for (const auto& required_extension : vulkan.required_extensions)
 		{
 			if (std::ranges::find(available_extensions, required_extension) == available_extensions.end())
 			{
@@ -102,7 +109,7 @@ namespace Mythos::vulkan
 	{
 #if _DEBUG
 		Debug::log_header("Vulkan required instance extensions : ");
-		for (const auto extension : vulkan.instance.required_extensions)
+		for (const auto extension : vulkan.required_extensions)
 		{
 			Debug::log(" >> : " + std::string(extension));
 		}
@@ -122,21 +129,21 @@ namespace Mythos::vulkan
 		{
 			//std::cout << layer.layerName << '\n';
 			if (std::string(layer.layerName).empty()) continue;
-			vulkan.instance.available_layers.push_back(layer);
+			vulkan.available_layers.push_back(layer);
 		}
 
 		// setup the validation layers
-		auto& create_info = vulkan.instance.create_info;
+		auto& create_info = vulkan.instance_create_info;
 
-		if (vulkan.instance.validation_enabled)
+		if (vulkan.validation_enabled)
 		{
-			auto& validation_layers = vulkan.instance.validation_layers;
+			auto& validation_layers = vulkan.validation_layers;
 			create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
 			create_info.ppEnabledLayerNames = validation_layers.data();
 
 			for (auto layer : validation_layers)
 			{
-				vulkan.instance.required_layers.push_back(layer);
+				vulkan.required_layers.push_back(layer);
 			}
 		}
 		else
@@ -149,7 +156,7 @@ namespace Mythos::vulkan
 	{
 #if _DEBUG
 		Debug::log_header("Vulkan available instance layers : ");
-		for (const auto layer : vulkan.instance.available_layers)
+		for (const auto layer : vulkan.available_layers)
 		{
 			Debug::log(" >> " + std::string(layer.layerName));
 		}
@@ -159,12 +166,12 @@ namespace Mythos::vulkan
 	static auto required_instance_layers_found(const vulkan_data& vulkan) -> bool
 	{
 		auto available_layers = std::vector<const char*>();
-		for (const auto layer : vulkan.instance.available_layers)
+		for (const auto layer : vulkan.available_layers)
 		{
 			available_layers.push_back(layer.layerName);
 		}
 
-		for (const auto& required_layer : vulkan.instance.required_layers)
+		for (const auto& required_layer : vulkan.required_layers)
 		{
 			if (std::ranges::find(available_layers, required_layer) == available_layers.end())
 			{
@@ -180,7 +187,7 @@ namespace Mythos::vulkan
 	{
 #if _DEBUG
 		Debug::log_header("Vulkan required instance layers : ");
-		for (const auto layer : vulkan.instance.validation_layers)
+		for (const auto layer : vulkan.validation_layers)
 		{
 			Debug::log(" >> : " + std::string(layer));
 		}
@@ -209,7 +216,7 @@ namespace Mythos::vulkan
 			return false;
 		}
 
-		const auto result = vkCreateInstance(&vulkan.instance.create_info, nullptr, &vulkan.instance.handle);
+		const auto result = vkCreateInstance(&vulkan.instance_create_info, nullptr, &vulkan.instance);
 
 		if (result != VK_SUCCESS)
 		{
@@ -225,12 +232,12 @@ namespace Mythos::vulkan
 
 	auto create_surface(void* hmodule, void* hwnd, vulkan_data& vulkan) -> bool
 	{
-		auto& create_info = vulkan.surface.create_info;
+		auto& create_info = vulkan.surface_create_info;
 		create_info.hinstance = static_cast<HMODULE>(hmodule);
 		create_info.hwnd = static_cast<HWND>(hwnd);
 
-		const auto result = vkCreateWin32SurfaceKHR(vulkan.instance.handle, &create_info, nullptr,
-		                                            &vulkan.surface.handle);
+		const auto result = vkCreateWin32SurfaceKHR(vulkan.instance, &create_info, nullptr,
+		                                            &vulkan.surface);
 
 		if (result != VK_SUCCESS)
 		{
@@ -246,14 +253,14 @@ namespace Mythos::vulkan
 	{
 		// get the number of physical devices
 		auto device_count = uint32_t();
-		vkEnumeratePhysicalDevices(vulkan.instance.handle, &device_count, nullptr);
+		vkEnumeratePhysicalDevices(vulkan.instance, &device_count, nullptr);
 
 		if (device_count == 0) return false;
 
 		// get list of physical devices
-		vulkan.device.physical.available_devices = std::vector<VkPhysicalDevice>(device_count);
-		vkEnumeratePhysicalDevices(vulkan.instance.handle, &device_count,
-		                           vulkan.device.physical.available_devices.data());
+		vulkan.available_devices = std::vector<VkPhysicalDevice>(device_count);
+		vkEnumeratePhysicalDevices(vulkan.instance, &device_count,
+		                           vulkan.available_devices.data());
 		return true;
 	}
 
@@ -264,7 +271,7 @@ namespace Mythos::vulkan
 		std::vector<VkExtensionProperties> available_extensions(extension_count);
 		vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &extension_count, available_extensions.data());
 
-		std::set<std::string> required_extensions(vulkan.device.extensions.begin(), vulkan.device.extensions.end());
+		std::set<std::string> required_extensions(vulkan.device_extensions.begin(), vulkan.device_extensions.end());
 
 		for (const auto& extension : available_extensions)
 		{
@@ -274,11 +281,22 @@ namespace Mythos::vulkan
 		return required_extensions.empty();
 	}
 
-	auto is_physical_device_suitable(VkPhysicalDevice physical_device, vulkan_data& vulkan) -> bool
+	auto swapchain_is_supported(const vulkan_data& vulkan) -> bool
 	{
-		const auto valid_queue_indices = vulkan.queues.indices_are_valid();
+		return !vulkan.swapchain_support_details.image_formats.empty() && !vulkan.swapchain_support_details.present_modes.empty();
+	}
+
+
+	auto queue_indices_are_valid(const vulkan_data& vulkan) -> bool
+	{
+		return vulkan.graphics_queue_family_indices.has_value() && vulkan.present_queue_family_indices.has_value();
+	}
+
+	auto is_physical_device_suitable(VkPhysicalDevice physical_device, const vulkan_data& vulkan) -> bool
+	{
+		const auto valid_queue_indices = queue_indices_are_valid(vulkan);
 		const auto valid_extensions = device_supports_required_extensions(physical_device, vulkan);
-		const auto valid_present_mode = vulkan.swapchain.is_supported();
+		const auto valid_present_mode = swapchain_is_supported(vulkan);
 
 		return valid_queue_indices && valid_extensions && valid_present_mode;
 	}
@@ -296,15 +314,15 @@ namespace Mythos::vulkan
 		{
 			if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 			{
-				vulkan.queues.graphics.family_indices = index;
+				vulkan.graphics_queue_family_indices = index;
 			}
 
 			auto presentSupport = static_cast<VkBool32>(false);
-			vkGetPhysicalDeviceSurfaceSupportKHR(device, index, vulkan.surface.handle, &presentSupport);
+			vkGetPhysicalDeviceSurfaceSupportKHR(device, index, vulkan.surface, &presentSupport);
 
 			if (presentSupport)
 			{
-				vulkan.queues.present.family_indices = index;
+				vulkan.present_queue_family_indices = index;
 			}
 
 			index++;
@@ -314,42 +332,42 @@ namespace Mythos::vulkan
 	auto set_device_swapchain_support_data(const VkPhysicalDevice& device, vulkan_data& vulkan) -> void
 	{
 		// get the support details for the swap chain
-		auto& details = vulkan.swapchain.support_details;
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, vulkan.surface.handle, &details.capabilities);
+		auto& details = vulkan.swapchain_support_details;
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, vulkan.surface, &details.capabilities);
 
 		// get the device format
 		auto format_count = uint32_t();
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkan.surface.handle, &format_count, nullptr);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkan.surface, &format_count, nullptr);
 
 		if (format_count != 0)
 		{
 			details.image_formats.resize(format_count);
-			vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkan.surface.handle, &format_count,
+			vkGetPhysicalDeviceSurfaceFormatsKHR(device, vulkan.surface, &format_count,
 			                                     details.image_formats.data());
 		}
 
 		// get the present mode
 		auto present_mode_count = uint32_t();
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkan.surface.handle, &present_mode_count, nullptr);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkan.surface, &present_mode_count, nullptr);
 
 		if (present_mode_count != 0)
 		{
 			details.present_modes.resize(present_mode_count);
-			vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkan.surface.handle, &present_mode_count,
+			vkGetPhysicalDeviceSurfacePresentModesKHR(device, vulkan.surface, &present_mode_count,
 			                                          details.present_modes.data());
 		}
 	}
 
 	auto select_first_suitable_physical_device(vulkan_data& vulkan) -> bool
 	{
-		for (const auto device : vulkan.device.physical.available_devices)
+		for (const auto device : vulkan.available_devices)
 		{
 			set_device_queue_indices(device, vulkan);
 			set_device_swapchain_support_data(device, vulkan);
 
 			if (is_physical_device_suitable(device, vulkan))
 			{
-				vulkan.device.physical.handle = device;
+				vulkan.physical_device = device;
 				return true;
 			}
 		}
@@ -378,8 +396,8 @@ namespace Mythos::vulkan
 	{
 		auto unique_queue_families = std::set<uint32_t>
 		{
-			vulkan.queues.graphics.family_indices.value(),
-			vulkan.queues.present.family_indices.value(),
+			vulkan.graphics_queue_family_indices.value(),
+			vulkan.present_queue_family_indices.value(),
 		};
 
 		constexpr auto priority = 1.0f;
@@ -397,41 +415,39 @@ namespace Mythos::vulkan
 			};
 
 			// add to the list of create infos
-			vulkan.device.queue_create_infos.push_back(queue_create_info);
+			vulkan.device_queue_create_infos.push_back(queue_create_info);
 		}
 	}
 
 	auto set_logical_device_create_info(vulkan_data& vulkan) -> void
 	{
-		auto& create_info = vulkan.device.logical.create_info;
+		auto& create_info = vulkan.device_create_info;
 
 		create_info =
 		{
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-			.queueCreateInfoCount = static_cast<uint32_t>(vulkan.device.queue_create_infos.size()),
-			.pQueueCreateInfos = vulkan.device.queue_create_infos.data(),
+			.queueCreateInfoCount = static_cast<uint32_t>(vulkan.device_queue_create_infos.size()),
+			.pQueueCreateInfos = vulkan.device_queue_create_infos.data(),
 			.enabledLayerCount = 0,
-			.enabledExtensionCount = static_cast<uint32_t>(vulkan.device.extensions.size()),
-			.ppEnabledExtensionNames = vulkan.device.extensions.data(),
-			.pEnabledFeatures = &vulkan.device.features,
+			.enabledExtensionCount = static_cast<uint32_t>(vulkan.device_extensions.size()),
+			.ppEnabledExtensionNames = vulkan.device_extensions.data(),
+			.pEnabledFeatures = &vulkan.physical_device_features,
 		};
 
-		if (vulkan.instance.validation_enabled)
+		if (vulkan.validation_enabled)
 		{
-			create_info.enabledLayerCount = static_cast<uint32_t>(vulkan.instance.required_layers.size());
-			create_info.ppEnabledLayerNames = vulkan.instance.required_layers.data();
+			create_info.enabledLayerCount = static_cast<uint32_t>(vulkan.required_layers.size());
+			create_info.ppEnabledLayerNames = vulkan.required_layers.data();
 		}
 	}
 
 	auto create_device_queue_families(vulkan_data& vulkan) -> bool
 	{
-		vkGetDeviceQueue(vulkan.device.logical.handle, vulkan.queues.graphics.family_indices.value(), 0,
-		                 &vulkan.queues.graphics.handle);
+		vkGetDeviceQueue(vulkan.device, vulkan.graphics_queue_family_indices.value(), 0, &vulkan.graphics_queue);
 
-		vkGetDeviceQueue(vulkan.device.logical.handle, vulkan.queues.present.family_indices.value(), 0,
-		                 &vulkan.queues.present.handle);
+		vkGetDeviceQueue(vulkan.device, vulkan.present_queue_family_indices.value(), 0, &vulkan.present_queue);
 
-		return vulkan.queues.graphics.handle != VK_NULL_HANDLE && vulkan.queues.present.handle != VK_NULL_HANDLE;
+		return vulkan.graphics_queue != VK_NULL_HANDLE && vulkan.present_queue != VK_NULL_HANDLE;
 	}
 
 	auto create_logical_device(vulkan_data& vulkan) -> bool
@@ -440,8 +456,8 @@ namespace Mythos::vulkan
 
 		set_logical_device_create_info(vulkan);
 
-		const auto result = vkCreateDevice(vulkan.device.physical.handle, &vulkan.device.logical.create_info, nullptr,
-		                                   &vulkan.device.logical.handle);
+		const auto result = vkCreateDevice(vulkan.physical_device, &vulkan.device_create_info, nullptr,
+		                                   &vulkan.device);
 
 		if (result != VK_SUCCESS)
 		{
@@ -461,37 +477,37 @@ namespace Mythos::vulkan
 
 	auto set_swapchain_image_format(vulkan_data& vulkan) -> void
 	{
-		const auto& available_formats = vulkan.swapchain.support_details.image_formats;
+		const auto& available_formats = vulkan.swapchain_support_details.image_formats;
 
 		for (const auto& available_format : available_formats)
 		{
 			if (available_format.format == VK_FORMAT_B8G8R8A8_SRGB && available_format.colorSpace ==
 				VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
 			{
-				vulkan.swapchain.surface_format = available_format;
+				vulkan.swapchain_surface_format = available_format;
 			}
 		}
 
-		vulkan.swapchain.surface_format = available_formats[0];
+		vulkan.swapchain_surface_format = available_formats[0];
 	}
 
 	auto set_swapchain_present_mode(vulkan_data& vulkan) -> void
 	{
-		for (const auto& available_present_mode : vulkan.swapchain.support_details.present_modes)
+		for (const auto& available_present_mode : vulkan.swapchain_support_details.present_modes)
 		{
 			if (available_present_mode != VK_PRESENT_MODE_MAILBOX_KHR) continue;
-			vulkan.swapchain.present_mode = available_present_mode;
+			vulkan.swapchain_present_mode = available_present_mode;
 		}
-		vulkan.swapchain.present_mode = VK_PRESENT_MODE_FIFO_KHR;
+		vulkan.swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR;
 	}
 
 	auto set_swapchain_extents(void* hwnd, vulkan_data& vulkan) -> void
 	{
-		const auto& capabilities = vulkan.swapchain.support_details.capabilities;
+		const auto& capabilities = vulkan.swapchain_support_details.capabilities;
 
 		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
 		{
-			vulkan.swapchain.extents = capabilities.currentExtent;
+			vulkan.swapchain_extents = capabilities.currentExtent;
 		}
 		else
 		{
@@ -512,13 +528,13 @@ namespace Mythos::vulkan
 			actual_extent.height = std::clamp(actual_extent.height, capabilities.minImageExtent.height,
 			                                  capabilities.maxImageExtent.height);
 
-			vulkan.swapchain.extents = actual_extent;
+			vulkan.swapchain_extents = actual_extent;
 		}
 	}
 
 	auto set_swapchain_create_info(vulkan_data& vulkan) -> void
 	{
-		const auto support_details = vulkan.swapchain.support_details;
+		const auto support_details = vulkan.swapchain_support_details;
 		auto image_count = support_details.capabilities.minImageCount + 1;
 		const auto greater_than_max = support_details.capabilities.maxImageCount > 0 && image_count > support_details.
 			capabilities.maxImageCount;
@@ -528,30 +544,30 @@ namespace Mythos::vulkan
 			image_count = support_details.capabilities.maxImageCount;
 		}
 
-		auto& create_info = vulkan.swapchain.create_info;
+		auto& create_info = vulkan.swapchain_create_info;
 
 		create_info = VkSwapchainCreateInfoKHR
 		{
 			.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-			.surface = vulkan.surface.handle,
+			.surface = vulkan.surface,
 			.minImageCount = image_count,
-			.imageFormat = vulkan.swapchain.surface_format.format,
-			.imageColorSpace = vulkan.swapchain.surface_format.colorSpace,
-			.imageExtent = vulkan.swapchain.extents,
+			.imageFormat = vulkan.swapchain_surface_format.format,
+			.imageColorSpace = vulkan.swapchain_surface_format.colorSpace,
+			.imageExtent = vulkan.swapchain_extents,
 			.imageArrayLayers = 1,
 			.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 
-			.preTransform = vulkan.swapchain.support_details.capabilities.currentTransform,
+			.preTransform = vulkan.swapchain_support_details.capabilities.currentTransform,
 			.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-			.presentMode = vulkan.swapchain.present_mode,
+			.presentMode = vulkan.swapchain_present_mode,
 			.clipped = VK_TRUE,
 			.oldSwapchain = VK_NULL_HANDLE
 		};
 
 		const uint32_t queue_family_indices[] =
 		{
-			vulkan.queues.graphics.family_indices.value(),
-			vulkan.queues.present.family_indices.value(),
+			vulkan.graphics_queue_family_indices.value(),
+			vulkan.present_queue_family_indices.value(),
 		};
 
 		if (queue_family_indices[0] != queue_family_indices[1])
@@ -578,10 +594,8 @@ namespace Mythos::vulkan
 
 		set_swapchain_create_info(vulkan);
 
-		const auto& logical_device = vulkan.device.logical.handle;
-		auto& swapchain = vulkan.swapchain;
-
-		const auto result = vkCreateSwapchainKHR(logical_device, &swapchain.create_info, nullptr, &swapchain.handle);
+		const auto result = vkCreateSwapchainKHR(vulkan.device, &vulkan.swapchain_create_info, nullptr,
+		                                         &vulkan.swapchain);
 		if (result != VK_SUCCESS)
 		{
 			Debug::error("failed to create swap chain!");
@@ -589,43 +603,51 @@ namespace Mythos::vulkan
 		}
 		Debug::log("Vulkan swapchain created");
 
-		auto image_count = swapchain.create_info.minImageCount;
-		vkGetSwapchainImagesKHR(logical_device, swapchain.handle, &image_count, nullptr);
-		swapchain.images.resize(image_count);
-		vkGetSwapchainImagesKHR(logical_device, swapchain.handle, &image_count, swapchain.images.data());
+		auto image_count = vulkan.swapchain_create_info.minImageCount;
+		vkGetSwapchainImagesKHR(vulkan.device, vulkan.swapchain, &image_count, nullptr);
+		vulkan.images.resize(image_count);
+		vkGetSwapchainImagesKHR(vulkan.device, vulkan.swapchain, &image_count, vulkan.images.data());
 
 		return true;
 	}
 
 	auto create_image_views(vulkan_data& vulkan) -> bool
 	{
-		auto& swapchain = vulkan.swapchain;
-		auto& image_views = vulkan.swapchain.image_views;
-		auto& images = vulkan.swapchain.images;
+		vulkan.image_views.resize(vulkan.images.size());
 
-		image_views.resize(images.size());
-
-		for (size_t i = 0; i < images.size(); i++)
+		auto component_mapping = VkComponentMapping
 		{
-			VkImageViewCreateInfo create_info{};
-			create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			create_info.image = images[i];
-			create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			create_info.format = swapchain.surface_format.format;
-			create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-			create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-			create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-			create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-			create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			create_info.subresourceRange.baseMipLevel = 0;
-			create_info.subresourceRange.levelCount = 1;
-			create_info.subresourceRange.baseArrayLayer = 0;
-			create_info.subresourceRange.layerCount = 1;
+			.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+			.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+			.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+			.a = VK_COMPONENT_SWIZZLE_IDENTITY,
+		};
 
-			const auto result = vkCreateImageView(vulkan.device.logical.handle, &create_info, nullptr, &image_views[i]);
+		auto image_subresource_range = VkImageSubresourceRange
+		{
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+		};
+
+		for (size_t i = 0; i < vulkan.images.size(); i++)
+		{
+			auto create_info = VkImageViewCreateInfo
+			{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+				.image = vulkan.images[i],
+				.viewType = VK_IMAGE_VIEW_TYPE_2D,
+				.format = vulkan.swapchain_surface_format.format,
+				.components = component_mapping,
+				.subresourceRange = image_subresource_range,
+			};
+
+			const auto result = vkCreateImageView(vulkan.device, &create_info, nullptr, &vulkan.image_views[i]);
 			if (result != VK_SUCCESS)
 			{
-				Debug::log("");
+				Debug::log("Vulkan failed to create image view");
 				return false;
 			}
 		}
@@ -637,7 +659,7 @@ namespace Mythos::vulkan
 	auto create_render_pass(vulkan_data& vulkan) -> bool
 	{
 		VkAttachmentDescription colorAttachment{};
-		colorAttachment.format = vulkan.swapchain.surface_format.format;
+		colorAttachment.format = vulkan.swapchain_surface_format.format;
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -673,8 +695,7 @@ namespace Mythos::vulkan
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		const auto success = vkCreateRenderPass(vulkan.device.logical.handle, &renderPassInfo, nullptr,
-		                                        &vulkan.graphics_pipeline.render_pass);
+		const auto success = vkCreateRenderPass(vulkan.device, &renderPassInfo, nullptr, &vulkan.render_pass);
 		if (success != VK_SUCCESS)
 		{
 			Debug::error("Vulkan failed to create render pass");
@@ -694,7 +715,7 @@ namespace Mythos::vulkan
 		};
 
 		VkShaderModule shader_module;
-		const auto result = vkCreateShaderModule(vk.device.logical.handle, &create_info, nullptr, &shader_module);
+		const auto result = vkCreateShaderModule(vk.device, &create_info, nullptr, &shader_module);
 		if (result != VK_SUCCESS)
 		{
 			Debug::error("Vulkan failed to create shader module");
@@ -764,7 +785,7 @@ namespace Mythos::vulkan
 		input_assembly.primitiveRestartEnable = VK_FALSE;
 
 		// viewport & scissor
-		const auto& extents = vulkan.swapchain.extents;
+		const auto& extents = vulkan.swapchain_extents;
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
@@ -852,8 +873,8 @@ namespace Mythos::vulkan
 		pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
 		pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
-		if (vkCreatePipelineLayout(vulkan.device.logical.handle, &pipelineLayoutInfo, nullptr,
-		                           &vulkan.graphics_pipeline.layout) != VK_SUCCESS)
+		auto success = vkCreatePipelineLayout(vulkan.device, &pipelineLayoutInfo, nullptr, &vulkan.pipeline_layout);
+		if (success != VK_SUCCESS)
 		{
 			Debug::error("Vulkan failed to create pipeline layout");
 			return false;
@@ -874,16 +895,15 @@ namespace Mythos::vulkan
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = &dynamic_state;
 
-		pipelineInfo.layout = vulkan.graphics_pipeline.layout;
+		pipelineInfo.layout = vulkan.pipeline_layout;
 
-		pipelineInfo.renderPass = vulkan.graphics_pipeline.render_pass;
+		pipelineInfo.renderPass = vulkan.render_pass;
 		pipelineInfo.subpass = 0;
 
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = -1; // Optional
 
-		const auto success = vkCreateGraphicsPipelines(vulkan.device.logical.handle, VK_NULL_HANDLE, 1, &pipelineInfo,
-		                                               nullptr, &vulkan.graphics_pipeline.handle);
+		success = vkCreateGraphicsPipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &vulkan.graphics_pipeline);
 		if (success != VK_SUCCESS)
 		{
 			Debug::error("Vulkan failed to create graphics pipeline");
@@ -891,8 +911,8 @@ namespace Mythos::vulkan
 		}
 
 		// destroy modules when done : no need to store
-		vkDestroyShaderModule(vulkan.device.logical.handle, vert_shader_module, nullptr);
-		vkDestroyShaderModule(vulkan.device.logical.handle, frag_shader_module, nullptr);
+		vkDestroyShaderModule(vulkan.device, vert_shader_module, nullptr);
+		vkDestroyShaderModule(vulkan.device, frag_shader_module, nullptr);
 
 		Debug::log("Vulkan graphics pipeline created");
 		return true;
@@ -900,10 +920,10 @@ namespace Mythos::vulkan
 
 	auto create_frame_buffers(vulkan_data& vulkan) -> bool
 	{
-		auto& frame_buffers = vulkan.swapchain.frame_buffers;
+		auto& frame_buffers = vulkan.frame_buffers;
 
-		const auto& image_views = vulkan.swapchain.image_views;
-		const auto& extent = vulkan.swapchain.extents;
+		const auto& image_views = vulkan.image_views;
+		const auto& extent = vulkan.swapchain_extents;
 
 		frame_buffers.resize(image_views.size());
 
@@ -916,15 +936,14 @@ namespace Mythos::vulkan
 
 			VkFramebufferCreateInfo framebuffer_info{};
 			framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebuffer_info.renderPass = vulkan.graphics_pipeline.render_pass;
+			framebuffer_info.renderPass = vulkan.render_pass;
 			framebuffer_info.attachmentCount = 1;
 			framebuffer_info.pAttachments = attachments;
 			framebuffer_info.width = extent.width;
 			framebuffer_info.height = extent.height;
 			framebuffer_info.layers = 1;
 
-			const auto success = vkCreateFramebuffer(vulkan.device.logical.handle, &framebuffer_info, nullptr,
-			                                         &frame_buffers[i]);
+			const auto success = vkCreateFramebuffer(vulkan.device, &framebuffer_info, nullptr, &frame_buffers[i]);
 			if (success != VK_SUCCESS)
 			{
 				Debug::error("Vulkan failed to create a framebuffer");
@@ -940,9 +959,9 @@ namespace Mythos::vulkan
 		VkCommandPoolCreateInfo pool_info{};
 		pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		pool_info.queueFamilyIndex = vulkan.queues.graphics.family_indices.value();
+		pool_info.queueFamilyIndex = vulkan.graphics_queue_family_indices.value();
 
-		const auto success = vkCreateCommandPool(vulkan.device.logical.handle, &pool_info, nullptr,
+		const auto success = vkCreateCommandPool(vulkan.device, &pool_info, nullptr,
 		                                         &vulkan.command_pool);
 		if (success != VK_SUCCESS)
 		{
@@ -962,7 +981,7 @@ namespace Mythos::vulkan
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandBufferCount = 1;
 
-		const auto success = vkAllocateCommandBuffers(vulkan.device.logical.handle, &allocInfo, &vulkan.command_buffer);
+		const auto success = vkAllocateCommandBuffers(vulkan.device, &allocInfo, &vulkan.command_buffer);
 		if (success != VK_SUCCESS)
 		{
 			Debug::error("Vulkan failed to allocate command buffers");
@@ -986,8 +1005,10 @@ namespace Mythos::vulkan
 		};
 
 		// create the semaphore
-		const auto result_1 = vkCreateSemaphore(vulkan.device.logical.handle, &semaphore_info, nullptr, &vulkan.image_available_semaphore);
-		const auto result_2 = vkCreateSemaphore(vulkan.device.logical.handle, &semaphore_info, nullptr, &vulkan.render_finished_semaphore);
+		const auto result_1 = vkCreateSemaphore(vulkan.device, &semaphore_info, nullptr,
+		                                        &vulkan.image_available_semaphore);
+		const auto result_2 = vkCreateSemaphore(vulkan.device, &semaphore_info, nullptr,
+		                                        &vulkan.render_finished_semaphore);
 		if (result_1 != VK_SUCCESS || result_2 != VK_SUCCESS)
 		{
 			Debug::error("Vulkan failed to create the semaphores");
@@ -995,8 +1016,8 @@ namespace Mythos::vulkan
 		}
 
 		// create the fence
-		auto result_3 = vkCreateFence(vulkan.device.logical.handle, &fence_info, nullptr, &vulkan.in_flight_fence);
-		if(result_3 != VK_SUCCESS)
+		auto result_3 = vkCreateFence(vulkan.device, &fence_info, nullptr, &vulkan.in_flight_fence);
+		if (result_3 != VK_SUCCESS)
 		{
 			Debug::error("Vulkan failed to create the fence");
 			return false;
@@ -1009,9 +1030,9 @@ namespace Mythos::vulkan
 	auto record_command_buffer(vulkan_data& vulkan, uint32_t image_index) -> void
 	{
 		const auto& command_buffer = vulkan.command_buffer;
-		const auto& render_pass = vulkan.graphics_pipeline.render_pass;
-		const auto& frame_buffers = vulkan.swapchain.frame_buffers;
-		const auto& swapchain_extent = vulkan.swapchain.extents;
+		const auto& render_pass = vulkan.render_pass;
+		const auto& frame_buffers = vulkan.frame_buffers;
+		const auto& swapchain_extent = vulkan.swapchain_extents;
 
 
 		VkCommandBufferBeginInfo beginInfo{};
@@ -1041,7 +1062,7 @@ namespace Mythos::vulkan
 		vkCmdBeginRenderPass(command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 		// bind the graphics pipeline
-		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan.graphics_pipeline.handle);
+		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan.graphics_pipeline);
 
 		// these get set here because we have set them to be dynamic
 		VkViewport viewport{};
@@ -1073,11 +1094,12 @@ namespace Mythos::vulkan
 
 	auto draw_frame(vulkan_data& vulkan) -> void
 	{
-		vkWaitForFences(vulkan.device.logical.handle, 1, &vulkan.in_flight_fence, VK_TRUE, UINT64_MAX);
-		vkResetFences(vulkan.device.logical.handle, 1, &vulkan.in_flight_fence);
+		vkWaitForFences(vulkan.device, 1, &vulkan.in_flight_fence, VK_TRUE, UINT64_MAX);
+		vkResetFences(vulkan.device, 1, &vulkan.in_flight_fence);
 
 		auto image_index = uint32_t();
-		vkAcquireNextImageKHR(vulkan.device.logical.handle, vulkan.swapchain.handle, UINT64_MAX, vulkan.image_available_semaphore, VK_NULL_HANDLE, &image_index);
+		vkAcquireNextImageKHR(vulkan.device, vulkan.swapchain, UINT64_MAX, vulkan.image_available_semaphore,
+		                      VK_NULL_HANDLE, &image_index);
 
 		vkResetCommandBuffer(vulkan.command_buffer, 0);
 
@@ -1086,8 +1108,8 @@ namespace Mythos::vulkan
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		VkSemaphore waitSemaphores[] = { vulkan.image_available_semaphore };
-		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		VkSemaphore waitSemaphores[] = {vulkan.image_available_semaphore};
+		VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
@@ -1095,12 +1117,12 @@ namespace Mythos::vulkan
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &vulkan.command_buffer;
 
-		VkSemaphore signalSemaphores[] = { vulkan.render_finished_semaphore };
+		VkSemaphore signalSemaphores[] = {vulkan.render_finished_semaphore};
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		auto success = vkQueueSubmit(vulkan.queues.graphics.handle, 1, &submitInfo, vulkan.in_flight_fence);
-		if(success!= VK_SUCCESS) 
+		auto success = vkQueueSubmit(vulkan.graphics_queue, 1, &submitInfo, vulkan.in_flight_fence);
+		if (success != VK_SUCCESS)
 		{
 			throw std::runtime_error("Vulkan failed to submit draw command buffer");
 			return;
@@ -1112,17 +1134,17 @@ namespace Mythos::vulkan
 		presentInfo.waitSemaphoreCount = 1;
 		presentInfo.pWaitSemaphores = signalSemaphores;
 
-		VkSwapchainKHR swapChains[] = { vulkan.swapchain.handle };
+		VkSwapchainKHR swapChains[] = {vulkan.swapchain};
 		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = swapChains;
 		presentInfo.pImageIndices = &image_index;
 
 		presentInfo.pResults = nullptr;
 
-		success = vkQueuePresentKHR(vulkan.queues.present.handle, &presentInfo);
-		if(success != VK_SUCCESS)
+		success = vkQueuePresentKHR(vulkan.present_queue, &presentInfo);
+		if (success != VK_SUCCESS)
 		{
-			throw std::runtime_error("Vulkan failed to submit to the present queue");
+			//throw std::runtime_error("Vulkan failed to submit to the present queue");
 		}
 	}
 }

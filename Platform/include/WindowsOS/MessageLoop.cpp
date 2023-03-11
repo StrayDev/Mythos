@@ -21,14 +21,20 @@ namespace Mythos::Platform
 		Debug::log(" >> Destroying message_loop object");
 	}
 
+        bool move;
+
 	void MessageLoop::Update()
-	{
-		/*MSG msg;
-		while (GetMessage(&msg, nullptr, 0, 0) > 0)
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}*/
-	}
+    {
+        MSG msg;
+        int maxMessages = 10;
+        int numMessages = 0;
+
+        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE) && numMessages < maxMessages)
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            numMessages++;
+        }
+    }
 
 }
