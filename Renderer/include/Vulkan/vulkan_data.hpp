@@ -115,6 +115,8 @@ namespace Mythos::vulkan
 
 		// graphics pipeline
 		int current_frame = 0;
+		bool frame_buffer_resized = false;
+
 		std::vector<VkImage> images{};
 		std::vector<VkImageView> image_views{};
 		std::vector<VkFramebuffer> frame_buffers{};

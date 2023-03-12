@@ -83,6 +83,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\Debug.hpp" />
+    <ClInclude Include="include\Maths\vector.hpp" />
     <ClInclude Include="include\Module\layer.hpp" />
     <ClInclude Include="include\Interface\IMakeUnique.hpp" />
     <ClInclude Include="include\Interface\IMessageHook.hpp" />

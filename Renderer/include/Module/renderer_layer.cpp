@@ -7,6 +7,7 @@
 #include <Windows.h>
 
 #include "Debug.hpp"
+#include "Maths/Vector.hpp"
 
 // --
 namespace Mythos
@@ -60,7 +61,6 @@ namespace Mythos
 
 		success = vulkan::create_sync_objects(*vulkan_data_);
 		if (!success) return;
-
 	}
 
 	Mythos::renderer_layer::~renderer_layer()
@@ -74,10 +74,9 @@ namespace Mythos
 
 	void Mythos::renderer_layer::render()
 	{
-		vulkan::draw_frame(*vulkan_data_);
+		// todo : if window can be used then;
+		vulkan::draw_frame(GetForegroundWindow(), *vulkan_data_);
 
 		vkDeviceWaitIdle(vulkan_data_->device);
 	}
-
 }
-
