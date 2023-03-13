@@ -1085,45 +1085,104 @@ namespace Mythos::vulkan
 		throw std::runtime_error("failed to find suitable memory type!");
 	}
 
-	auto create_vertex_buffer(vulkan_data& vulkan) -> bool
+	auto create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
+	                   VkDeviceMemory& buffer_memory, vulkan_data& vulkan) -> bool
 	{
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = sizeof(vertices[0]) * vertices.size();
-		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		if (vkCreateBuffer(vulkan.device, &bufferInfo, nullptr, &vulkan.vertex_buffer) != VK_SUCCESS)
-		{
-			throw std::runtime_error("Vulkan failed to create vertex buffer!");
-			return false;
+		if (vkCreateBuffer(vulkan.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create buffer!");
 		}
 
 		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(vulkan.device, vulkan.vertex_buffer, &memRequirements);
+		vkGetBufferMemoryRequirements(vulkan.device, buffer, &memRequirements);
 
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = find_memory_type(memRequirements.memoryTypeBits,
-		                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		                                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vulkan);
+		allocInfo.memoryTypeIndex = find_memory_type(memRequirements.memoryTypeBits, properties, vulkan);
 
-		const auto result = vkAllocateMemory(vulkan.device, &allocInfo, nullptr, &vulkan.vertex_buffer_memory);
-		if (result != VK_SUCCESS)
+		if (vkAllocateMemory(vulkan.device, &allocInfo, nullptr, &buffer_memory) != VK_SUCCESS) 
 		{
-			throw std::runtime_error("failed to allocate vertex buffer memory!");
+			throw std::runtime_error("failed to allocate buffer memory!");
 			return false;
 		}
 
-		vkBindBufferMemory(vulkan.device, vulkan.vertex_buffer, vulkan.vertex_buffer_memory, 0);
+		vkBindBufferMemory(vulkan.device, buffer, buffer_memory, 0);
+		return true;
+	}
 
-		// filling the vertex data
+	void copy_buffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size, vulkan_data& vulkan)
+	{
+		VkCommandBufferAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandPool = vulkan.command_pool;
+		allocInfo.commandBufferCount = 1;
+
+		VkCommandBuffer commandBuffer;
+		vkAllocateCommandBuffers(vulkan.device, &allocInfo, &commandBuffer);
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+		VkBufferCopy copyRegion{};
+		copyRegion.srcOffset = 0; // Optional
+		copyRegion.dstOffset = 0; // Optional
+		copyRegion.size = size;
+		vkCmdCopyBuffer(commandBuffer, src_buffer, dst_buffer, 1, &copyRegion);
+
+		vkEndCommandBuffer(commandBuffer);
+
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		vkQueueSubmit(vulkan.graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(vulkan.graphics_queue);
+
+		vkFreeCommandBuffers(vulkan.device, vulkan.command_pool, 1, &commandBuffer);
+	}
+
+	auto create_vertex_buffer(vulkan_data& vulkan) -> bool
+	{
+		const auto buffer_size = VkDeviceSize{ sizeof(vertices[0]) * vertices.size() };
+
+		constexpr auto staging_usage = VkBufferUsageFlags{ VK_BUFFER_USAGE_TRANSFER_SRC_BIT };
+		constexpr auto staging_properties = VkMemoryPropertyFlags{ VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
+
+		VkBuffer staging_buffer;
+		VkDeviceMemory staging_buffer_memory;
+
+		auto success = create_buffer(buffer_size, staging_usage, staging_properties, staging_buffer, staging_buffer_memory, vulkan);
+
+		if (!success) return false;
+
 		void* data;
-		vkMapMemory(vulkan.device, vulkan.vertex_buffer_memory, 0, bufferInfo.size, 0, &data);
+		vkMapMemory(vulkan.device, staging_buffer_memory, 0, buffer_size, 0, &data);
+		memcpy(data, vertices.data(), static_cast<size_t>(buffer_size));
+		vkUnmapMemory(vulkan.device, staging_buffer_memory);
 
-		memcpy(data, vertices.data(), static_cast<size_t>(bufferInfo.size));
-		vkUnmapMemory(vulkan.device, vulkan.vertex_buffer_memory);
+		constexpr auto vertex_usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		constexpr auto vertex_properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+		success = create_buffer(buffer_size, vertex_usage, vertex_properties, vulkan.vertex_buffer, vulkan.vertex_buffer_memory, vulkan);
+
+		if (!success) return false;
+
+		copy_buffer(staging_buffer, vulkan.vertex_buffer, buffer_size, vulkan);
+
+		vkDestroyBuffer(vulkan.device, staging_buffer, nullptr);
+		vkFreeMemory(vulkan.device, staging_buffer_memory, nullptr);
+
 		return true;
 	}
 
