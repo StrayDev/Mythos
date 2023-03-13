@@ -47,6 +47,9 @@ namespace Mythos
 		success = vulkan::create_render_pass(*vulkan_data_);
 		if (!success) return;
 
+		success = vulkan::create_descriptor_set_layout(*vulkan_data_);
+		if (!success) return;
+
 		success = vulkan::create_graphics_pipeline(*vulkan_data_);
 		if (!success) return;
 
@@ -60,6 +63,15 @@ namespace Mythos
 		if (!success) return;
 
 		success = vulkan::create_index_buffer(*vulkan_data_);
+		if (!success) return;
+
+		success = vulkan::create_uniform_buffers(*vulkan_data_);
+		if (!success) return;
+
+		success = vulkan::create_descriptor_pool(*vulkan_data_);
+		if (!success) return;
+
+		success = vulkan::create_descriptor_set(*vulkan_data_);
 		if (!success) return;
 
 		success = vulkan::create_command_buffers(*vulkan_data_);

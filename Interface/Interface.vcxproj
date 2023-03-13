@@ -10,6 +10,48 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\Debug.hpp" />
+    <ClInclude Include="include\glm\common.hpp" />
+    <ClInclude Include="include\glm\exponential.hpp" />
+    <ClInclude Include="include\glm\ext.hpp" />
+    <ClInclude Include="include\glm\fwd.hpp" />
+    <ClInclude Include="include\glm\geometric.hpp" />
+    <ClInclude Include="include\glm\glm.hpp" />
+    <ClInclude Include="include\glm\integer.hpp" />
+    <ClInclude Include="include\glm\mat2x2.hpp" />
+    <ClInclude Include="include\glm\mat2x3.hpp" />
+    <ClInclude Include="include\glm\mat2x4.hpp" />
+    <ClInclude Include="include\glm\mat3x2.hpp" />
+    <ClInclude Include="include\glm\mat3x3.hpp" />
+    <ClInclude Include="include\glm\mat3x4.hpp" />
+    <ClInclude Include="include\glm\mat4x2.hpp" />
+    <ClInclude Include="include\glm\mat4x3.hpp" />
+    <ClInclude Include="include\glm\mat4x4.hpp" />
+    <ClInclude Include="include\glm\matrix.hpp" />
+    <ClInclude Include="include\glm\packing.hpp" />
+    <ClInclude Include="include\glm\trigonometric.hpp" />
+    <ClInclude Include="include\glm\vec2.hpp" />
+    <ClInclude Include="include\glm\vec3.hpp" />
+    <ClInclude Include="include\glm\vec4.hpp" />
+    <ClInclude Include="include\glm\vector_relational.hpp" />
+    <ClInclude Include="include\Interface\IMakeUnique.hpp" />
+    <ClInclude Include="include\Interface\IMessageHook.hpp" />
+    <ClInclude Include="include\Interface\IMessageLoop.hpp" />
+    <ClInclude Include="include\Interface\IWindow.hpp" />
+    <ClInclude Include="include\IPC\shared_func.hpp" />
+    <ClInclude Include="include\Maths\vectors.hpp" />
+    <ClInclude Include="include\Module\layer.hpp" />
+    <ClInclude Include="include\Module\Module.hpp" />
+    <ClInclude Include="include\Utility\Constants.hpp" />
+    <ClInclude Include="include\Utility\Export.hpp" />
+    <ClInclude Include="include\Utility\FileUtility.hpp" />
+    <ClInclude Include="include\Utility\Handles.hpp" />
+    <ClInclude Include="include\Utility\InterfaceUtility.hpp" />
+    <ClInclude Include="include\Utility\Macro.hpp" />
+    <ClInclude Include="include\Utility\ModuleUtility.hpp" />
+    <ClInclude Include="include\Utility\StringUtility.hpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -81,25 +123,6 @@
       </AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClInclude Include="include\Debug.hpp" />
-    <ClInclude Include="include\Maths\vectors.hpp" />
-    <ClInclude Include="include\Module\layer.hpp" />
-    <ClInclude Include="include\Interface\IMakeUnique.hpp" />
-    <ClInclude Include="include\Interface\IMessageHook.hpp" />
-    <ClInclude Include="include\Interface\IMessageLoop.hpp" />
-    <ClInclude Include="include\Interface\IWindow.hpp" />
-    <ClInclude Include="include\Module\Module.hpp" />
-    <ClInclude Include="include\IPC\shared_func.hpp" />
-    <ClInclude Include="include\Utility\Constants.hpp" />
-    <ClInclude Include="include\Utility\FileUtility.hpp" />
-    <ClInclude Include="include\Utility\Handles.hpp" />
-    <ClInclude Include="include\Utility\InterfaceUtility.hpp" />
-    <ClInclude Include="include\Utility\Macro.hpp" />
-    <ClInclude Include="include\Utility\ModuleUtility.hpp" />
-    <ClInclude Include="include\Utility\StringUtility.hpp" />
-    <ClInclude Include="include\Utility\Export.hpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

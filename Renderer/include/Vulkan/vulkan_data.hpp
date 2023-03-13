@@ -123,13 +123,21 @@ namespace Mythos::vulkan
 		VkBuffer index_buffer = {};
 		VkDeviceMemory index_buffer_memory = {};
 
-		std::vector<VkImage> images{};
-		std::vector<VkImageView> image_views{};
-		std::vector<VkFramebuffer> frame_buffers{};
+		std::vector<VkBuffer> uniform_buffers = {};
+		std::vector<void*> uniform_buffers_mapped = {};
+		std::vector<VkDeviceMemory> uniform_buffers_memory = {};
+
+		VkDescriptorPool descriptor_pool = {};
+		std::vector<VkDescriptorSet> descriptor_sets = {};
+
+		std::vector<VkImage> images = {};
+		std::vector<VkImageView> image_views = {};
+		std::vector<VkFramebuffer> frame_buffers = {};
 
 		//graphics pipeline
-		VkPipelineLayout pipeline_layout{};
-		VkRenderPass render_pass{};
+		VkRenderPass render_pass = {};
+		VkPipelineLayout pipeline_layout = {};
+		VkDescriptorSetLayout descriptor_set_layout = {};
 
 	};
 

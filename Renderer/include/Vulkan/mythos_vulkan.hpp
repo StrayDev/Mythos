@@ -29,6 +29,8 @@ namespace Mythos::vulkan
 
 	auto create_render_pass(vulkan_data& vulkan) -> bool;
 
+	auto create_descriptor_set_layout(vulkan_data& vulkan) -> bool;
+
 	auto create_graphics_pipeline(vulkan_data& vulkan) -> bool;
 
 	auto create_frame_buffers(vulkan_data& vulkan) -> bool;
@@ -38,6 +40,12 @@ namespace Mythos::vulkan
 	auto create_vertex_buffer(vulkan_data& vulkan) -> bool;
 
 	auto create_index_buffer(vulkan_data& vulkan) -> bool;
+
+	auto create_uniform_buffers(vulkan_data& vulkan) -> bool;
+
+	auto create_descriptor_pool(vulkan_data& vulkan) -> bool;
+
+	auto create_descriptor_set(vulkan_data& vulkan) -> bool;
 
 	auto create_command_buffers(vulkan_data& vulkan) -> bool;
 

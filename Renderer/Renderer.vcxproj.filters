@@ -53,5 +53,8 @@
     <ClInclude Include="include\Shader\vertex.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\Shader\uniform_buffer_object.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

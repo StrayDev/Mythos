@@ -151,6 +151,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Module\renderer_layer.hpp" />
+    <ClInclude Include="include\Shader\uniform_buffer_object.hpp" />
     <ClInclude Include="include\Shader\vertex.hpp" />
     <ClInclude Include="include\Vulkan\mythos_vulkan.hpp" />
     <ClInclude Include="include\Shader\shader.hpp" />

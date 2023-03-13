@@ -92,12 +92,12 @@ namespace Mythos::Debug
 #endif
 	}
 
-	static void assert(const std::string& msg, std::source_location source = std::source_location::current())
+	/*static void assert(const std::string& msg, std::source_location source = std::source_location::current())
 	{
 #ifdef  _DEBUG
 		call(DEBUG_ASSERT_KEY, msg, source);
 #endif
-	}
+	}*/
 
 	static void exception(const std::string& msg, std::source_location source = std::source_location::current())
 	{

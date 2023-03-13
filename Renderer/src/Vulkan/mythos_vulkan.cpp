@@ -2,12 +2,19 @@
 
 // STL
 #include <algorithm>
+#include <chrono>
 #include <string>
 #include <set>
+
+// GLM
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 // Mythos
 #include "Debug.hpp"
 #include "Shader/shader.hpp"
+#include "Shader/uniform_buffer_object.hpp"
 #include "Shader/vertex.hpp"
 #undef max // need to extract .cpp from debug and set extern in engine dll
 
@@ -670,6 +677,30 @@ namespace Mythos::vulkan
 		return true;
 	}
 
+	auto create_descriptor_set_layout(vulkan_data& vulkan) -> bool
+	{
+		VkDescriptorSetLayoutBinding uboLayoutBinding{};
+		uboLayoutBinding.binding = 0;
+		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboLayoutBinding.descriptorCount = 1;
+		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+
+		VkDescriptorSetLayoutCreateInfo layoutInfo{};
+		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layoutInfo.bindingCount = 1;
+		layoutInfo.pBindings = &uboLayoutBinding;
+
+		if (vkCreateDescriptorSetLayout(vulkan.device, &layoutInfo, nullptr, &vulkan.descriptor_set_layout) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create descriptor set layout!");
+		}
+
+
+
+		return true;
+	}
+
 	auto create_shader_module(const std::vector<char>& code, const vulkan_data& vk) -> VkShaderModule
 	{
 		const auto create_info = VkShaderModuleCreateInfo
@@ -791,7 +822,7 @@ namespace Mythos::vulkan
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 		rasterizer.depthBiasConstantFactor = 0.0f;
 		rasterizer.depthBiasClamp = 0.0f;
@@ -836,8 +867,8 @@ namespace Mythos::vulkan
 		// pipeline layout
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = 0; // Optional
-		pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
+		pipelineLayoutInfo.setLayoutCount = 1;
+		pipelineLayoutInfo.pSetLayouts = &vulkan.descriptor_set_layout;
 		pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
 		pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
@@ -1052,11 +1083,13 @@ namespace Mythos::vulkan
 
 		auto& buffer = vulkan.vertex_buffer;
 
-		VkBuffer vertexBuffers[] = { vulkan.vertex_buffer };
-		VkDeviceSize offsets[] = { 0 };
+		VkBuffer vertexBuffers[] = {vulkan.vertex_buffer};
+		VkDeviceSize offsets[] = {0};
 
 		vkCmdBindVertexBuffers(command_buffer, 0, 1, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(command_buffer, vulkan.index_buffer, 0, VK_INDEX_TYPE_UINT16);
+
+		vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan.pipeline_layout, 0, 1, &vulkan.descriptor_sets[vulkan.current_frame], 0, nullptr);
 
 		// draw command
 		vkCmdDrawIndexed(command_buffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
@@ -1096,7 +1129,8 @@ namespace Mythos::vulkan
 		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		if (vkCreateBuffer(vulkan.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+		if (vkCreateBuffer(vulkan.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+		{
 			throw std::runtime_error("failed to create buffer!");
 		}
 
@@ -1108,7 +1142,7 @@ namespace Mythos::vulkan
 		allocInfo.allocationSize = memRequirements.size;
 		allocInfo.memoryTypeIndex = find_memory_type(memRequirements.memoryTypeBits, properties, vulkan);
 
-		if (vkAllocateMemory(vulkan.device, &allocInfo, nullptr, &buffer_memory) != VK_SUCCESS) 
+		if (vkAllocateMemory(vulkan.device, &allocInfo, nullptr, &buffer_memory) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to allocate buffer memory!");
 			return false;
@@ -1156,15 +1190,18 @@ namespace Mythos::vulkan
 
 	auto create_vertex_buffer(vulkan_data& vulkan) -> bool
 	{
-		const auto buffer_size = VkDeviceSize{ sizeof(vertices[0]) * vertices.size() };
+		const auto buffer_size = VkDeviceSize{sizeof(vertices[0]) * vertices.size()};
 
-		constexpr auto staging_usage = VkBufferUsageFlags{ VK_BUFFER_USAGE_TRANSFER_SRC_BIT };
-		constexpr auto staging_properties = VkMemoryPropertyFlags{ VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT };
+		constexpr auto staging_usage = VkBufferUsageFlags{VK_BUFFER_USAGE_TRANSFER_SRC_BIT};
+		constexpr auto staging_properties = VkMemoryPropertyFlags{
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		};
 
 		VkBuffer staging_buffer;
 		VkDeviceMemory staging_buffer_memory;
 
-		auto success = create_buffer(buffer_size, staging_usage, staging_properties, staging_buffer, staging_buffer_memory, vulkan);
+		auto success = create_buffer(buffer_size, staging_usage, staging_properties, staging_buffer,
+		                             staging_buffer_memory, vulkan);
 
 		if (!success) return false;
 
@@ -1176,7 +1213,8 @@ namespace Mythos::vulkan
 		constexpr auto vertex_usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 		constexpr auto vertex_properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-		success = create_buffer(buffer_size, vertex_usage, vertex_properties, vulkan.vertex_buffer, vulkan.vertex_buffer_memory, vulkan);
+		success = create_buffer(buffer_size, vertex_usage, vertex_properties, vulkan.vertex_buffer,
+		                        vulkan.vertex_buffer_memory, vulkan);
 
 		if (!success) return false;
 
@@ -1195,14 +1233,17 @@ namespace Mythos::vulkan
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
 
-		create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, vulkan);
+		create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
+		              stagingBufferMemory, vulkan);
 
 		void* data;
 		vkMapMemory(vulkan.device, stagingBufferMemory, 0, bufferSize, 0, &data);
 		memcpy(data, indices.data(), (size_t)bufferSize);
 		vkUnmapMemory(vulkan.device, stagingBufferMemory);
 
-		create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.index_buffer, vulkan.index_buffer_memory, vulkan);
+		create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.index_buffer, vulkan.index_buffer_memory, vulkan);
 
 		copy_buffer(stagingBuffer, vulkan.index_buffer, bufferSize, vulkan);
 
@@ -1212,6 +1253,105 @@ namespace Mythos::vulkan
 		return true;
 	}
 
+	auto create_uniform_buffers(vulkan_data& vulkan) -> bool
+	{
+		VkDeviceSize bufferSize = sizeof(uniform_buffer_object);
+
+		vulkan.uniform_buffers.resize(vulkan.MAX_FRAMES_IN_FLIGHT);
+		vulkan.uniform_buffers_memory.resize(vulkan.MAX_FRAMES_IN_FLIGHT);
+		vulkan.uniform_buffers_mapped.resize(vulkan.MAX_FRAMES_IN_FLIGHT);
+
+		constexpr auto usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+		constexpr auto properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+		auto success = false;
+		for (size_t i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT; i++) 
+		{
+			success = create_buffer(bufferSize, usage, properties, vulkan.uniform_buffers[i], vulkan.uniform_buffers_memory[i], vulkan);
+			if (!success) return false;
+			vkMapMemory(vulkan.device, vulkan.uniform_buffers_memory[i], 0, bufferSize, 0, &vulkan.uniform_buffers_mapped[i]);
+		}
+
+		return true;
+	}
+
+	auto create_descriptor_pool(vulkan_data& vulkan) -> bool
+	{
+		VkDescriptorPoolSize poolSize{};
+		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSize.descriptorCount = static_cast<uint32_t>(vulkan.MAX_FRAMES_IN_FLIGHT);
+
+		VkDescriptorPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.poolSizeCount = 1;
+		poolInfo.pPoolSizes = &poolSize;
+		poolInfo.maxSets = static_cast<uint32_t>(vulkan.MAX_FRAMES_IN_FLIGHT);
+
+		if (vkCreateDescriptorPool(vulkan.device, &poolInfo, nullptr, &vulkan.descriptor_pool) != VK_SUCCESS) 
+		{
+			throw std::runtime_error("failed to create descriptor pool!");
+			return false;
+		}
+
+		return true;
+	}
+
+	auto create_descriptor_set(vulkan_data& vulkan) -> bool
+	{
+		std::vector<VkDescriptorSetLayout> layouts(vulkan.MAX_FRAMES_IN_FLIGHT, vulkan.descriptor_set_layout);
+		VkDescriptorSetAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		allocInfo.descriptorPool = vulkan.descriptor_pool;
+		allocInfo.descriptorSetCount = static_cast<uint32_t>(vulkan.MAX_FRAMES_IN_FLIGHT);
+		allocInfo.pSetLayouts = layouts.data();
+
+		vulkan.descriptor_sets.resize(vulkan.MAX_FRAMES_IN_FLIGHT);
+		if (vkAllocateDescriptorSets(vulkan.device, &allocInfo, vulkan.descriptor_sets.data()) != VK_SUCCESS) 
+		{
+			throw std::runtime_error("failed to allocate descriptor sets!");
+			return false;
+		}
+
+		for (size_t i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT; i++) 
+		{
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = vulkan.uniform_buffers[i];
+			bufferInfo.offset = 0;
+			bufferInfo.range = sizeof(uniform_buffer_object);
+
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = vulkan.descriptor_sets[i];
+			descriptorWrite.dstBinding = 0;
+			descriptorWrite.dstArrayElement = 0;
+			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrite.descriptorCount = 1;
+			descriptorWrite.pBufferInfo = &bufferInfo;
+			descriptorWrite.pImageInfo = nullptr; // Optional
+			descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+			vkUpdateDescriptorSets(vulkan.device, 1, &descriptorWrite, 0, nullptr);
+		}
+
+		return true;
+	}
+
+	void update_uniform_buffer(vulkan_data& vulkan)
+	{
+		static auto start_time = std::chrono::high_resolution_clock::now();
+
+		const auto current_time = std::chrono::high_resolution_clock::now();
+		float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+
+		uniform_buffer_object ubo{};
+		ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.view  = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.proj  = glm::perspective(glm::radians(45.0f), vulkan.swapchain_extents.width / static_cast<float>(vulkan.swapchain_extents.height), 0.1f, 10.0f);
+		ubo.proj[1][1] *= -1;
+
+		memcpy(vulkan.uniform_buffers_mapped[vulkan.current_frame], &ubo, sizeof(ubo));
+
+	}
 
 	auto draw_frame(void* hwnd, vulkan_data& vulkan) -> void
 	{
@@ -1234,6 +1374,8 @@ namespace Mythos::vulkan
 
 		vkResetCommandBuffer(vulkan.command_buffers[i], 0);
 		record_command_buffer(vulkan, image_index);
+
+		update_uniform_buffer(vulkan);
 
 		const VkSemaphore wait_semaphores[] = {vulkan.image_available_semaphores[i]};
 		const VkSemaphore signal_semaphores[] = {vulkan.render_finished_semaphores[i]};
@@ -1314,6 +1456,15 @@ namespace Mythos::vulkan
 	auto destroy_vulkan_data(vulkan_data& vulkan) -> void
 	{
 		clean_up_swapchain(vulkan);
+
+		for (size_t i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT; i++) 
+		{
+			vkDestroyBuffer(vulkan.device, vulkan.uniform_buffers[i], nullptr);
+			vkFreeMemory(vulkan.device, vulkan.uniform_buffers_memory[i], nullptr);
+		}
+
+		vkDestroyDescriptorPool(vulkan.device, vulkan.descriptor_pool, nullptr);
+		vkDestroyDescriptorSetLayout(vulkan.device, vulkan.descriptor_set_layout, nullptr);
 
 		vkDestroyBuffer(vulkan.device, vulkan.index_buffer, nullptr);
 		vkFreeMemory(vulkan.device, vulkan.index_buffer_memory, nullptr);
