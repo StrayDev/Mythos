@@ -120,9 +120,8 @@ namespace Mythos::vulkan
 		VkBuffer vertex_buffer = {};
 		VkDeviceMemory vertex_buffer_memory = {};
 
-		/*
-		VkBuffer staging_buffer = {};
-		VkDeviceMemory staging_buffer_memory = {};*/
+		VkBuffer index_buffer = {};
+		VkDeviceMemory index_buffer_memory = {};
 
 		std::vector<VkImage> images{};
 		std::vector<VkImageView> image_views{};

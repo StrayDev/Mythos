@@ -1054,10 +1054,12 @@ namespace Mythos::vulkan
 
 		VkBuffer vertexBuffers[] = { vulkan.vertex_buffer };
 		VkDeviceSize offsets[] = { 0 };
+
 		vkCmdBindVertexBuffers(command_buffer, 0, 1, vertexBuffers, offsets);
+		vkCmdBindIndexBuffer(command_buffer, vulkan.index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
 		// draw command
-		vkCmdDraw(command_buffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+		vkCmdDrawIndexed(command_buffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 		// end the render pass
 		vkCmdEndRenderPass(command_buffer);
@@ -1186,6 +1188,30 @@ namespace Mythos::vulkan
 		return true;
 	}
 
+	auto create_index_buffer(vulkan_data& vulkan) -> bool
+	{
+		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+
+		create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, vulkan);
+
+		void* data;
+		vkMapMemory(vulkan.device, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, indices.data(), (size_t)bufferSize);
+		vkUnmapMemory(vulkan.device, stagingBufferMemory);
+
+		create_buffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.index_buffer, vulkan.index_buffer_memory, vulkan);
+
+		copy_buffer(stagingBuffer, vulkan.index_buffer, bufferSize, vulkan);
+
+		vkDestroyBuffer(vulkan.device, stagingBuffer, nullptr);
+		vkFreeMemory(vulkan.device, stagingBufferMemory, nullptr);
+
+		return true;
+	}
+
 
 	auto draw_frame(void* hwnd, vulkan_data& vulkan) -> void
 	{
@@ -1288,6 +1314,9 @@ namespace Mythos::vulkan
 	auto destroy_vulkan_data(vulkan_data& vulkan) -> void
 	{
 		clean_up_swapchain(vulkan);
+
+		vkDestroyBuffer(vulkan.device, vulkan.index_buffer, nullptr);
+		vkFreeMemory(vulkan.device, vulkan.index_buffer_memory, nullptr);
 
 		vkDestroyBuffer(vulkan.device, vulkan.vertex_buffer, nullptr);
 		vkFreeMemory(vulkan.device, vulkan.vertex_buffer_memory, nullptr);

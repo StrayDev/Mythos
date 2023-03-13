@@ -59,6 +59,9 @@ namespace Mythos
 		success = vulkan::create_vertex_buffer(*vulkan_data_);
 		if (!success) return;
 
+		success = vulkan::create_index_buffer(*vulkan_data_);
+		if (!success) return;
+
 		success = vulkan::create_command_buffers(*vulkan_data_);
 		if (!success) return;
 
