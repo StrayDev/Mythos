@@ -7,7 +7,7 @@
 #include <Windows.h>
 
 #include "Debug.hpp"
-#include "Maths/Vector.hpp"
+#include "Maths/vectors.hpp"
 
 // --
 namespace Mythos
@@ -54,6 +54,9 @@ namespace Mythos
 		if (!success) return;
 
 		success = vulkan::create_command_pool(*vulkan_data_);
+		if (!success) return;
+
+		success = vulkan::create_vertex_buffer(*vulkan_data_);
 		if (!success) return;
 
 		success = vulkan::create_command_buffers(*vulkan_data_);

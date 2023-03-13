@@ -50,5 +50,8 @@
     <ClInclude Include="include\Shader\shader.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\Shader\vertex.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

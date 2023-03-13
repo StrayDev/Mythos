@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#if _WIN64 
+#if _WIN64
 
 #define WIN64_LEAN_AND_MEAN
 
@@ -10,11 +10,11 @@
 
 inline const char* ToName(const char* file_path)
 {
-    const char* filename = file_path;
-    const char* last_separator = strrchr(filename, '\\');
-    if (last_separator == nullptr) last_separator = strrchr(filename, '/');
-    if (last_separator == nullptr) last_separator = filename - 1;
-    return last_separator + 1;
+	const char* filename = file_path;
+	const char* last_separator = strrchr(filename, '\\');
+	if (last_separator == nullptr) last_separator = strrchr(filename, '/');
+	if (last_separator == nullptr) last_separator = filename - 1;
+	return last_separator + 1;
 }
 
 #define FILE_DATE __DATE__

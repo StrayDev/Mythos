@@ -8,6 +8,7 @@
 // Mythos
 #include "Debug.hpp"
 #include "Shader/shader.hpp"
+#include "Shader/vertex.hpp"
 #undef max // need to extract .cpp from debug and set extern in engine dll
 
 // --
@@ -735,12 +736,15 @@ namespace Mythos::vulkan
 		};
 
 		//
-		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		vertexInputInfo.pVertexBindingDescriptions = nullptr;
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
-		vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+		auto binding_description = vertex::get_binding_description();
+		auto attribute_descriptions = vertex::get_attribute_descriptions();
+
+		VkPipelineVertexInputStateCreateInfo vertex_input_create_info{};
+		vertex_input_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertex_input_create_info.vertexBindingDescriptionCount = 1;
+		vertex_input_create_info.pVertexBindingDescriptions = &binding_description;
+		vertex_input_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
+		vertex_input_create_info.pVertexAttributeDescriptions = attribute_descriptions.data();
 
 		// input assembly
 		VkPipelineInputAssemblyStateCreateInfo input_assembly{};
@@ -850,7 +854,7 @@ namespace Mythos::vulkan
 		pipelineInfo.stageCount = 2;
 		pipelineInfo.pStages = shader_stages;
 
-		pipelineInfo.pVertexInputState = &vertexInputInfo;
+		pipelineInfo.pVertexInputState = &vertex_input_create_info;
 		pipelineInfo.pInputAssemblyState = &input_assembly;
 		pipelineInfo.pViewportState = &viewport_state;
 		pipelineInfo.pRasterizationState = &rasterizer;
@@ -1046,8 +1050,14 @@ namespace Mythos::vulkan
 		scissor.extent = swapchain_extent;
 		vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
+		auto& buffer = vulkan.vertex_buffer;
+
+		VkBuffer vertexBuffers[] = { vulkan.vertex_buffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, vertexBuffers, offsets);
+
 		// draw command
-		vkCmdDraw(command_buffer, 3, 1, 0, 0);
+		vkCmdDraw(command_buffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 
 		// end the render pass
 		vkCmdEndRenderPass(command_buffer);
@@ -1059,19 +1069,79 @@ namespace Mythos::vulkan
 		}
 	}
 
+	auto find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties, const vulkan_data& vulkan) -> uint32_t
+	{
+		auto mem_properties = VkPhysicalDeviceMemoryProperties();
+		vkGetPhysicalDeviceMemoryProperties(vulkan.physical_device, &mem_properties);
+
+		for (uint32_t i = 0; i < mem_properties.memoryTypeCount; i++)
+		{
+			if ((type_filter & (1 << i)) && (mem_properties.memoryTypes[i].propertyFlags & properties) == properties)
+			{
+				return i;
+			}
+		}
+
+		throw std::runtime_error("failed to find suitable memory type!");
+	}
+
+	auto create_vertex_buffer(vulkan_data& vulkan) -> bool
+	{
+		VkBufferCreateInfo bufferInfo{};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = sizeof(vertices[0]) * vertices.size();
+		bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		if (vkCreateBuffer(vulkan.device, &bufferInfo, nullptr, &vulkan.vertex_buffer) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Vulkan failed to create vertex buffer!");
+			return false;
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetBufferMemoryRequirements(vulkan.device, vulkan.vertex_buffer, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = find_memory_type(memRequirements.memoryTypeBits,
+		                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		                                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vulkan);
+
+		const auto result = vkAllocateMemory(vulkan.device, &allocInfo, nullptr, &vulkan.vertex_buffer_memory);
+		if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate vertex buffer memory!");
+			return false;
+		}
+
+		vkBindBufferMemory(vulkan.device, vulkan.vertex_buffer, vulkan.vertex_buffer_memory, 0);
+
+		// filling the vertex data
+		void* data;
+		vkMapMemory(vulkan.device, vulkan.vertex_buffer_memory, 0, bufferInfo.size, 0, &data);
+
+		memcpy(data, vertices.data(), static_cast<size_t>(bufferInfo.size));
+		vkUnmapMemory(vulkan.device, vulkan.vertex_buffer_memory);
+		return true;
+	}
+
+
 	auto draw_frame(void* hwnd, vulkan_data& vulkan) -> void
 	{
 		const auto i = vulkan.current_frame;
 		auto image_index = uint32_t();
 
 		vkWaitForFences(vulkan.device, 1, &vulkan.in_flight_fences[i], VK_TRUE, UINT64_MAX);
-		auto result = vkAcquireNextImageKHR(vulkan.device, vulkan.swapchain, UINT64_MAX, vulkan.image_available_semaphores[i], VK_NULL_HANDLE, &image_index);
+		auto result = vkAcquireNextImageKHR(vulkan.device, vulkan.swapchain, UINT64_MAX,
+		                                    vulkan.image_available_semaphores[i], VK_NULL_HANDLE, &image_index);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
 			recreate_swapchain(hwnd, vulkan);
 			return;
 		}
-		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) 
+		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
 		{
 			throw std::runtime_error("failed to acquire swap chain image!");
 		}
@@ -1080,10 +1150,10 @@ namespace Mythos::vulkan
 		vkResetCommandBuffer(vulkan.command_buffers[i], 0);
 		record_command_buffer(vulkan, image_index);
 
-		const VkSemaphore wait_semaphores[] = { vulkan.image_available_semaphores[i] };
-		const VkSemaphore signal_semaphores[] = { vulkan.render_finished_semaphores[i] };
+		const VkSemaphore wait_semaphores[] = {vulkan.image_available_semaphores[i]};
+		const VkSemaphore signal_semaphores[] = {vulkan.render_finished_semaphores[i]};
 
-		constexpr VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+		constexpr VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
 		auto submit_info = VkSubmitInfo
 		{
@@ -1103,7 +1173,7 @@ namespace Mythos::vulkan
 			throw std::runtime_error("Vulkan failed to submit draw command buffer");
 		}
 
-		VkSwapchainKHR swapChains[] = { vulkan.swapchain };
+		VkSwapchainKHR swapChains[] = {vulkan.swapchain};
 
 		const auto present_info = VkPresentInfoKHR
 		{
@@ -1117,12 +1187,12 @@ namespace Mythos::vulkan
 		};
 
 		result = vkQueuePresentKHR(vulkan.present_queue, &present_info);
-		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR|| vulkan.frame_buffer_resized) 
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || vulkan.frame_buffer_resized)
 		{
 			vulkan.frame_buffer_resized = false;
 			recreate_swapchain(hwnd, vulkan);
 		}
-		else if (result != VK_SUCCESS) 
+		else if (result != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to present swap chain image!");
 		}
@@ -1160,6 +1230,9 @@ namespace Mythos::vulkan
 	{
 		clean_up_swapchain(vulkan);
 
+		vkDestroyBuffer(vulkan.device, vulkan.vertex_buffer, nullptr);
+		vkFreeMemory(vulkan.device, vulkan.vertex_buffer_memory, nullptr);
+
 		vkDestroyPipeline(vulkan.device, vulkan.graphics_pipeline, nullptr);
 		vkDestroyPipelineLayout(vulkan.device, vulkan.pipeline_layout, nullptr);
 
@@ -1176,7 +1249,7 @@ namespace Mythos::vulkan
 
 		vkDestroyDevice(vulkan.device, nullptr);
 
-		if(vulkan.validation_enabled)
+		if (vulkan.validation_enabled)
 		{
 			//DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
 		}

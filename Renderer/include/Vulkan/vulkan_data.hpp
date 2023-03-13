@@ -117,6 +117,9 @@ namespace Mythos::vulkan
 		int current_frame = 0;
 		bool frame_buffer_resized = false;
 
+		VkBuffer vertex_buffer = {};
+		VkDeviceMemory vertex_buffer_memory = {};
+
 		std::vector<VkImage> images{};
 		std::vector<VkImageView> image_views{};
 		std::vector<VkFramebuffer> frame_buffers{};
