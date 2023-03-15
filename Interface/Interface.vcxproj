@@ -44,6 +44,7 @@
     <ClInclude Include="include\Module\layer.hpp" />
     <ClInclude Include="include\Module\Module.hpp" />
     <ClInclude Include="include\stb_image.h" />
+    <ClInclude Include="include\tiny_obj_loader.h" />
     <ClInclude Include="include\Utility\Constants.hpp" />
     <ClInclude Include="include\Utility\Export.hpp" />
     <ClInclude Include="include\Utility\FileUtility.hpp" />

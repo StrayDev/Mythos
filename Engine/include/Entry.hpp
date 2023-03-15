@@ -1,17 +1,15 @@
 #pragma once
-#include <iostream>
+
+#include "Application.hpp"
 
 // --
 int main()
 {
-	const auto app = Mythos::CreateApplication();
+	const auto app = Mythos::create_application();
 
-	app->Run(); 
+	app->run(); 
 
 	app->shutdown();
-
-	auto temp = std::string();
-	std::getline(std::cin, temp);
 
 	return 0;
 }

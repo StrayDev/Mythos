@@ -2,6 +2,7 @@
 
 // STL
 #include <memory>
+#include <string>
 
 // Mythos
 #include "vulkan_data.hpp"
@@ -11,6 +12,16 @@ namespace Mythos::vulkan
 {
 	// TODO : does not yet support window resize and minimization
 	// TODO : need to implement event system and window events
+
+	// model details -- temp
+	const uint32_t WIDTH = 800;
+	const uint32_t HEIGHT = 600;
+
+	const std::string MODEL_PATH = "../Renderer/textures/viking_room.obj";
+	const std::string TEXTURE_PATH = "../Renderer/textures/viking_room.png";
+
+	auto load_model(vulkan_data& vulkan) -> bool;
+
 	// --
 	
 	auto make_unique_vulkan_data(bool set_validation = false) -> std::unique_ptr<vulkan_data>;

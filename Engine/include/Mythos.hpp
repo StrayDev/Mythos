@@ -7,6 +7,6 @@
 #include "Entry.hpp"
 
 // To be defined with the derived class
-extern std::unique_ptr<Mythos::Application> Mythos::CreateApplication();
+extern std::unique_ptr<Mythos::application> Mythos::create_application();
 
 

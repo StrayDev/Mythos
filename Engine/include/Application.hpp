@@ -14,13 +14,13 @@ namespace Mythos
 {
 	// --
 
-	class ENGINE_API Application
+	class ENGINE_API application
 	{
 	public:
-		Application();
-		virtual ~Application();
+		application();
+		virtual ~application();
 		
-		void Run();
+		void run();
 		void shutdown();
 	private:
 		bool is_running_;
@@ -30,5 +30,5 @@ namespace Mythos
 	std::vector<std::unique_ptr<Module, std::default_delete<Module>>> modules_;
 	std::vector<std::unique_ptr<layer>> layers_;
 
-	extern std::unique_ptr<Application> CreateApplication();
+	extern std::unique_ptr<application> create_application();
 }

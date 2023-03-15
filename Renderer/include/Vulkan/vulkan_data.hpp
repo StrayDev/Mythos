@@ -30,6 +30,9 @@ typedef _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES;
 #include <functional>
 #include <optional>
 
+// Mythos
+#include "Shader/vertex.hpp"
+
 // -- 
 namespace Mythos::vulkan
 {
@@ -116,6 +119,9 @@ namespace Mythos::vulkan
 		// graphics pipeline
 		int current_frame = 0;
 		bool frame_buffer_resized = false;
+
+		std::vector<vertex> vertices = {};
+		std::vector<uint32_t> indices = {};
 
 		VkBuffer vertex_buffer = {};
 		VkDeviceMemory vertex_buffer_memory = {};

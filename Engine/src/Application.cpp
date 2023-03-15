@@ -9,7 +9,7 @@
 #include "Debug.hpp"
 
 // --
-Mythos::Application::Application()
+Mythos::application::application()
 {
 	// set the default log behaviour
 	Debug::SetDefaultBehaviour();
@@ -39,18 +39,18 @@ Mythos::Application::Application()
 	is_running_ = true;
 }
 
-Mythos::Application::~Application()
+Mythos::application::~application()
 {
 	Debug::log("Application Destroyed");
 
 	// destroy layers lowest priority first
-	for(auto i = layers_.size() ; !layers_.empty(); --i)
+	for(auto i = layers_.size(); !layers_.empty(); --i)
 	{
 		layers_.pop_back();
 	}
 }
 
-void Mythos::Application::Run()
+void Mythos::application::run()
 {
 	while (is_running_)
 	{
@@ -62,7 +62,7 @@ void Mythos::Application::Run()
 	}
 }
 
-void Mythos::Application::shutdown()
+void Mythos::application::shutdown()
 {
 	// destroy the layers first
 	layers_.clear();
