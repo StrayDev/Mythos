@@ -157,6 +157,9 @@
     <ClInclude Include="include\Shader\shader.hpp" />
     <ClInclude Include="include\Vulkan\vulkan_data.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="textures\texture.jpg" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

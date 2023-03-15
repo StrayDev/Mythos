@@ -59,6 +59,15 @@ namespace Mythos
 		success = vulkan::create_command_pool(*vulkan_data_);
 		if (!success) return;
 
+		success = vulkan::create_texture_image(*vulkan_data_);
+		if (!success) return;
+
+		success = vulkan::create_texture_image_view(*vulkan_data_);
+		if (!success) return;
+
+		success = vulkan::create_texture_sampler(*vulkan_data_);
+		if (!success) return;
+
 		success = vulkan::create_vertex_buffer(*vulkan_data_);
 		if (!success) return;
 

@@ -37,6 +37,12 @@ namespace Mythos::vulkan
 
 	auto create_command_pool(vulkan_data& vulkan) -> bool;
 
+	auto create_texture_image(vulkan_data& vulkan) -> bool;
+
+	auto create_texture_image_view(vulkan_data& vulkan) -> bool;
+
+	auto create_texture_sampler(vulkan_data& vulkan) -> bool;
+
 	auto create_vertex_buffer(vulkan_data& vulkan) -> bool;
 
 	auto create_index_buffer(vulkan_data& vulkan) -> bool;

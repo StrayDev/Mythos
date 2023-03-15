@@ -5,50 +5,59 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "Maths/vectors.hpp"
+//#include "Maths/vectors.hpp"
+#include "glm/vec2.hpp"
+#include "glm/vec3.hpp"
 
 namespace Mythos
 {
 	struct vertex
 	{
-		float2 pos;
-		float3 color;
+		glm::vec2 pos;
+		glm::vec3 color;
+		glm::vec2 tex_coord;
 
 		static auto get_binding_description() -> VkVertexInputBindingDescription
 		{
-			auto binding_description = VkVertexInputBindingDescription
+			constexpr auto binding_description = VkVertexInputBindingDescription
 			{
 				.binding = 0,
 				.stride = sizeof(vertex),
 				.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
 			};
+
 			return binding_description;
 		};
 
-		static auto get_attribute_descriptions() -> std::array<VkVertexInputAttributeDescription, 2>
+		static auto get_attribute_descriptions() -> std::array<VkVertexInputAttributeDescription, 3>
 		{
-			auto attribute_descriptions = std::array<VkVertexInputAttributeDescription, 2>{};
+			std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
-			attribute_descriptions[0].binding = 0;
-			attribute_descriptions[0].location = 0;
-			attribute_descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-			attribute_descriptions[0].offset = offsetof(vertex, pos);
+			attributeDescriptions[0].binding = 0;
+			attributeDescriptions[0].location = 0;
+			attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+			attributeDescriptions[0].offset = offsetof(vertex, pos);
 
-			attribute_descriptions[1].binding = 0;
-			attribute_descriptions[1].location = 1;
-			attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-			attribute_descriptions[1].offset = offsetof(vertex, color);
+			attributeDescriptions[1].binding = 0;
+			attributeDescriptions[1].location = 1;
+			attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+			attributeDescriptions[1].offset = offsetof(vertex, color);
 
-			return attribute_descriptions;
+			attributeDescriptions[2].binding = 0;
+			attributeDescriptions[2].location = 2;
+			attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+			attributeDescriptions[2].offset = offsetof(vertex, tex_coord);
+
+			return attributeDescriptions;
 		}
 	};
 
 	const std::vector<vertex> vertices =
 	{
-		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
 	};
 
 	const std::vector<uint16_t> indices = 

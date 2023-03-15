@@ -43,6 +43,7 @@
     <ClInclude Include="include\Maths\vectors.hpp" />
     <ClInclude Include="include\Module\layer.hpp" />
     <ClInclude Include="include\Module\Module.hpp" />
+    <ClInclude Include="include\stb_image.h" />
     <ClInclude Include="include\Utility\Constants.hpp" />
     <ClInclude Include="include\Utility\Export.hpp" />
     <ClInclude Include="include\Utility\FileUtility.hpp" />

@@ -134,6 +134,12 @@ namespace Mythos::vulkan
 		std::vector<VkImageView> image_views = {};
 		std::vector<VkFramebuffer> frame_buffers = {};
 
+		// probably wont store image data here in the future? 
+		VkImage texture_image = {};
+		VkSampler texture_sampler = {};
+		VkImageView texture_image_view = {};
+		VkDeviceMemory texture_image_memory = {};
+
 		//graphics pipeline
 		VkRenderPass render_pass = {};
 		VkPipelineLayout pipeline_layout = {};
