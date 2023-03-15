@@ -140,6 +140,10 @@ namespace Mythos::vulkan
 		VkImageView texture_image_view = {};
 		VkDeviceMemory texture_image_memory = {};
 
+		VkImage depth_image = {};
+		VkImageView depth_image_view = {};
+		VkDeviceMemory depth_image_memory = {};
+
 		//graphics pipeline
 		VkRenderPass render_pass = {};
 		VkPipelineLayout pipeline_layout = {};

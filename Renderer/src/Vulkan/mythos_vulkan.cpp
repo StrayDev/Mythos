@@ -8,6 +8,7 @@
 
 // GLM
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -25,6 +26,13 @@
 // --
 namespace Mythos::vulkan
 {
+	// --
+
+	// forward helper functions
+	auto find_depth_format(vulkan_data& vulkan) -> VkFormat;
+
+
+
 	// --
 
 	auto make_unique_vulkan_data(bool set_validation) -> std::unique_ptr<vulkan_data>
@@ -594,6 +602,28 @@ namespace Mythos::vulkan
 
 	auto create_render_pass(vulkan_data& vulkan) -> bool
 	{
+		VkAttachmentReference colorAttachmentRef{};
+		colorAttachmentRef.attachment = 0;
+		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depthAttachmentRef{};
+		depthAttachmentRef.attachment = 1;
+		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpass{};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = 1;
+		subpass.pColorAttachments = &colorAttachmentRef;
+		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+		VkSubpassDependency dependency{};
+		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency.srcAccessMask = 0;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependency.dstSubpass = 0;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = vulkan.swapchain_surface_format.format;
 		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -604,28 +634,22 @@ namespace Mythos::vulkan
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-		VkAttachmentReference colorAttachmentRef{};
-		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		VkAttachmentDescription depthAttachment{};
+		depthAttachment.format = find_depth_format(vulkan);
+		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		VkSubpassDescription subpass{};
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 1;
-		subpass.pColorAttachments = &colorAttachmentRef;
+		std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
 
-		VkSubpassDependency dependency{};
-		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency.dstSubpass = 0;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.srcAccessMask = 0;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-		// create the render pass
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = 1;
-		renderPassInfo.pAttachments = &colorAttachment;
+		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		renderPassInfo.pAttachments = attachments.data();
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
 		renderPassInfo.dependencyCount = 1;
@@ -657,7 +681,7 @@ namespace Mythos::vulkan
 		samplerLayoutBinding.pImmutableSamplers = nullptr;
 		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+		std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -811,9 +835,6 @@ namespace Mythos::vulkan
 		multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
 		multisampling.alphaToOneEnable = VK_FALSE; // Optional
 
-		// depth and stencil testing
-		// TODO : tutorial comes back to this section
-
 		// colour blending
 		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
@@ -852,12 +873,23 @@ namespace Mythos::vulkan
 			return false;
 		}
 
+		VkPipelineDepthStencilStateCreateInfo depthStencil{};
+		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+		depthStencil.depthTestEnable = VK_TRUE;
+		depthStencil.depthWriteEnable = VK_TRUE;
+		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+		depthStencil.depthBoundsTestEnable = VK_FALSE;
+		depthStencil.minDepthBounds = 0.0f; // Optional
+		depthStencil.maxDepthBounds = 1.0f; // Optional
+		depthStencil.stencilTestEnable = VK_FALSE;
+		depthStencil.front = {}; // Optional
+		depthStencil.back = {}; // Optional
+
 		// actually create the graphics pipeline
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = 2;
 		pipelineInfo.pStages = shader_stages;
-
 		pipelineInfo.pVertexInputState = &vertex_input_create_info;
 		pipelineInfo.pInputAssemblyState = &input_assembly;
 		pipelineInfo.pViewportState = &viewport_state;
@@ -866,17 +898,15 @@ namespace Mythos::vulkan
 		pipelineInfo.pDepthStencilState = nullptr; // Optional
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = &dynamic_state;
-
 		pipelineInfo.layout = vulkan.pipeline_layout;
-
 		pipelineInfo.renderPass = vulkan.render_pass;
 		pipelineInfo.subpass = 0;
-
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = -1; // Optional
+		pipelineInfo.pDepthStencilState = &depthStencil;
 
-		success = vkCreateGraphicsPipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
-		                                    &vulkan.graphics_pipeline);
+		success = vkCreateGraphicsPipelines(vulkan.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &vulkan.graphics_pipeline);
+
 		if (success != VK_SUCCESS)
 		{
 			Debug::error("Vulkan failed to create graphics pipeline");
@@ -902,21 +932,22 @@ namespace Mythos::vulkan
 
 		for (size_t i = 0; i < image_views.size(); i++)
 		{
-			const VkImageView attachments[] =
+			std::array<VkImageView, 2> attachments = 
 			{
-				image_views[i]
+				vulkan.image_views[i],
+				vulkan.depth_image_view,
 			};
 
-			VkFramebufferCreateInfo framebuffer_info{};
-			framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-			framebuffer_info.renderPass = vulkan.render_pass;
-			framebuffer_info.attachmentCount = 1;
-			framebuffer_info.pAttachments = attachments;
-			framebuffer_info.width = extent.width;
-			framebuffer_info.height = extent.height;
-			framebuffer_info.layers = 1;
+			VkFramebufferCreateInfo framebufferInfo{};
+			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			framebufferInfo.renderPass = vulkan.render_pass;
+			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+			framebufferInfo.pAttachments = attachments.data();
+			framebufferInfo.width = vulkan.swapchain_extents.width;
+			framebufferInfo.height = vulkan.swapchain_extents.height;
+			framebufferInfo.layers = 1;
 
-			const auto success = vkCreateFramebuffer(vulkan.device, &framebuffer_info, nullptr, &frame_buffers[i]);
+			const auto success = vkCreateFramebuffer(vulkan.device, &framebufferInfo, nullptr, &frame_buffers[i]);
 			if (success != VK_SUCCESS)
 			{
 				Debug::error("Vulkan failed to create a framebuffer");
@@ -946,6 +977,43 @@ namespace Mythos::vulkan
 		return true;
 	}
 
+	auto find_supported_format(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features, vulkan_data& vulkan) -> VkFormat
+	{
+		for (const auto format : candidates)
+		{
+			VkFormatProperties props;
+			vkGetPhysicalDeviceFormatProperties(vulkan.physical_device, format, &props);
+
+			if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) 
+			{
+				return format;
+			}
+			else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) 
+			{
+				return format;
+			}
+		}
+
+		throw std::runtime_error("failed to find supported format!");
+	}
+
+	auto find_depth_format(vulkan_data& vulkan) -> VkFormat
+	{
+		const auto candidates = std::vector<VkFormat>
+		{
+			VK_FORMAT_D32_SFLOAT,
+			VK_FORMAT_D32_SFLOAT_S8_UINT,
+			VK_FORMAT_D24_UNORM_S8_UINT
+		};
+
+		return find_supported_format(candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, vulkan);
+	}
+
+	auto has_stencil_component(VkFormat format) -> bool
+	{
+		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+	}
+
 	auto find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties, const vulkan_data& vulkan) -> uint32_t
 	{
 		auto mem_properties = VkPhysicalDeviceMemoryProperties();
@@ -962,41 +1030,9 @@ namespace Mythos::vulkan
 		throw std::runtime_error("failed to find suitable memory type!");
 	}
 
-	auto create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
-	                   VkDeviceMemory& buffer_memory, vulkan_data& vulkan) -> bool
-	{
-		VkBufferCreateInfo bufferInfo{};
-		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = size;
-		bufferInfo.usage = usage;
-		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-		if (vkCreateBuffer(vulkan.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create buffer!");
-		}
-
-		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(vulkan.device, buffer, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = find_memory_type(memRequirements.memoryTypeBits, properties, vulkan);
-
-		if (vkAllocateMemory(vulkan.device, &allocInfo, nullptr, &buffer_memory) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to allocate buffer memory!");
-			return false;
-		}
-
-		vkBindBufferMemory(vulkan.device, buffer, buffer_memory, 0);
-		return true;
-	}
-
 	auto create_image(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-	                  VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& image_memory,
-	                  vulkan_data& vulkan) -> bool
+		VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& image_memory,
+		vulkan_data& vulkan) -> bool
 	{
 		VkImageCreateInfo imageInfo{};
 		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1033,6 +1069,62 @@ namespace Mythos::vulkan
 		}
 
 		vkBindImageMemory(vulkan.device, image, image_memory, 0);
+		return true;
+	}
+
+	auto create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags, vulkan_data& vulkan) -> VkImageView
+	{
+		VkImageViewCreateInfo viewInfo{};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = image;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = format;
+		viewInfo.subresourceRange.aspectMask = aspect_flags;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+
+		VkImageView imageView;
+
+		const auto success = vkCreateImageView(vulkan.device, &viewInfo, nullptr, &imageView);
+		if (success != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create texture image view!");
+		}
+
+		return imageView;
+	}
+
+	auto create_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer,
+	                   VkDeviceMemory& buffer_memory, vulkan_data& vulkan) -> bool
+	{
+		VkBufferCreateInfo bufferInfo{};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		if (vkCreateBuffer(vulkan.device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create buffer!");
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetBufferMemoryRequirements(vulkan.device, buffer, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = find_memory_type(memRequirements.memoryTypeBits, properties, vulkan);
+
+		if (vkAllocateMemory(vulkan.device, &allocInfo, nullptr, &buffer_memory) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to allocate buffer memory!");
+			return false;
+		}
+
+		vkBindBufferMemory(vulkan.device, buffer, buffer_memory, 0);
 		return true;
 	}
 
@@ -1092,16 +1184,28 @@ namespace Mythos::vulkan
 		VkPipelineStageFlags sourceStage;
 		VkPipelineStageFlags destinationStage;
 
-		if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+		if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) 
 		{
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+			if (has_stencil_component(format)) 
+			{
+				barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+			}
+		}
+		else 
+		{
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		}
+
+		if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
 			barrier.srcAccessMask = 0;
 			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
 			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		}
-		else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout ==
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
 		{
 			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -1109,19 +1213,20 @@ namespace Mythos::vulkan
 			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		}
-		else
+		else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) 
+		{
+			barrier.srcAccessMask = 0;
+			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		}
+		else 
 		{
 			throw std::invalid_argument("unsupported layout transition!");
 		}
 
-		vkCmdPipelineBarrier(
-			commandBuffer,
-			sourceStage, destinationStage,
-			0,
-			0, nullptr,
-			0, nullptr,
-			1, &barrier
-		);
+		vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
 		end_single_time_commands(commandBuffer, vulkan);
 	}
@@ -1201,44 +1306,20 @@ namespace Mythos::vulkan
 		return true;
 	}
 
-	auto create_image_view(VkImage image, VkFormat format, vulkan_data& vulkan) -> VkImageView
-	{
-		VkImageViewCreateInfo viewInfo{};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = image;
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = format;
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
-
-		VkImageView imageView;
-
-		const auto success = vkCreateImageView(vulkan.device, &viewInfo, nullptr, &imageView);
-		if (success != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create texture image view!");
-		}
-
-		return imageView;
-	}
-
 	auto create_image_views(vulkan_data& vulkan) -> bool
 	{
 		vulkan.image_views.resize(vulkan.images.size());
 
 		for (size_t i = 0; i < vulkan.images.size(); i++)
 		{
-			vulkan.image_views[i] = create_image_view(vulkan.images[i], vulkan.swapchain_surface_format.format, vulkan);
+			vulkan.image_views[i] = create_image_view(vulkan.images[i], vulkan.swapchain_surface_format.format, VK_IMAGE_ASPECT_COLOR_BIT, vulkan);
 		}
 		return true;
 	}
 
 	auto create_texture_image_view(vulkan_data& vulkan) -> bool
 	{
-		vulkan.texture_image_view = create_image_view(vulkan.texture_image, VK_FORMAT_R8G8B8A8_SRGB, vulkan);
+		vulkan.texture_image_view = create_image_view(vulkan.texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, vulkan);
 		return vulkan.texture_image_view != VK_NULL_HANDLE;
 	}
 
@@ -1360,6 +1441,13 @@ namespace Mythos::vulkan
 		VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
 		renderPassInfo.clearValueCount = 1;
 		renderPassInfo.pClearValues = &clear_color;
+
+		std::array<VkClearValue, 2> clearValues{};
+		clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+		clearValues[1].depthStencil = { 1.0f, 0 };
+
+		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+		renderPassInfo.pClearValues = clearValues.data();
 
 		// begin render pass
 		vkCmdBeginRenderPass(command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -1531,8 +1619,6 @@ namespace Mythos::vulkan
 
 	auto create_descriptor_set(vulkan_data& vulkan) -> bool
 	{
-		Debug::log("TESTING");
-
 		std::vector<VkDescriptorSetLayout> layouts(vulkan.MAX_FRAMES_IN_FLIGHT, vulkan.descriptor_set_layout);
 
 		VkDescriptorSetAllocateInfo allocInfo{};
@@ -1548,7 +1634,7 @@ namespace Mythos::vulkan
 			return false;
 		}
 
-		for (size_t i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT; i++) 
+		for (size_t i = 0; i < vulkan.MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			VkDescriptorBufferInfo bufferInfo{};
 			bufferInfo.buffer = vulkan.uniform_buffers[i];
@@ -1578,7 +1664,8 @@ namespace Mythos::vulkan
 			descriptorWrites[1].descriptorCount = 1;
 			descriptorWrites[1].pImageInfo = &imageInfo;
 
-			vkUpdateDescriptorSets(vulkan.device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+			vkUpdateDescriptorSets(vulkan.device, static_cast<uint32_t>(descriptorWrites.size()),
+			                       descriptorWrites.data(), 0, nullptr);
 		}
 
 		return true;
@@ -1649,7 +1736,7 @@ namespace Mythos::vulkan
 			throw std::runtime_error("Vulkan failed to submit draw command buffer");
 		}
 
-		VkSwapchainKHR swapChains[] = { vulkan.swapchain };
+		VkSwapchainKHR swapChains[] = {vulkan.swapchain};
 
 		const auto present_info = VkPresentInfoKHR
 		{
@@ -1678,6 +1765,10 @@ namespace Mythos::vulkan
 
 	auto clean_up_swapchain(vulkan_data& vulkan) -> void
 	{
+		vkDestroyImageView(vulkan.device, vulkan.depth_image_view, nullptr);
+		vkDestroyImage(vulkan.device, vulkan.depth_image, nullptr);
+		vkFreeMemory(vulkan.device, vulkan.depth_image_memory, nullptr);
+
 		for (size_t i = 0; i < vulkan.frame_buffers.size(); i++)
 		{
 			vkDestroyFramebuffer(vulkan.device, vulkan.frame_buffers[i], nullptr);
@@ -1699,6 +1790,7 @@ namespace Mythos::vulkan
 
 		create_swapchain(hwnd, vulkan);
 		create_image_views(vulkan);
+		create_depth_resources(vulkan);
 		create_frame_buffers(vulkan);
 	}
 
@@ -1743,14 +1835,26 @@ namespace Mythos::vulkan
 
 		vkDestroyDevice(vulkan.device, nullptr);
 
-		if (vulkan.validation_enabled)
-		{
-			//DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
-		}
-
 		vkDestroySurfaceKHR(vulkan.instance, vulkan.surface, nullptr);
 		vkDestroyInstance(vulkan.instance, nullptr);
 
 		Debug::log_header("Vulkan objects destroyed");
+	}
+
+	auto create_depth_resources(vulkan_data& vulkan) -> bool
+	{
+
+		const auto depth_format = find_depth_format(vulkan);
+
+		create_image(vulkan.swapchain_extents.width, vulkan.swapchain_extents.height, depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.depth_image, vulkan.depth_image_memory, vulkan);
+		vulkan.depth_image_view = create_image_view(vulkan.depth_image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT, vulkan);
+
+		transition_image_layout(vulkan.depth_image, depth_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, vulkan);
+
+
+
+
+
+		return true;
 	}
 }
