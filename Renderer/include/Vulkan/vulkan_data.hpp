@@ -141,6 +141,7 @@ namespace Mythos::vulkan
 		std::vector<VkFramebuffer> frame_buffers = {};
 
 		// probably wont store image data here in the future? 
+		uint32_t mip_levels = {};
 		VkImage texture_image = {};
 		VkSampler texture_sampler = {};
 		VkImageView texture_image_view = {};

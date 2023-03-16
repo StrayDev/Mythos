@@ -1084,7 +1084,7 @@ namespace Mythos::vulkan
 		throw std::runtime_error("failed to find suitable memory type!");
 	}
 
-	auto create_image(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
+	auto create_image(uint32_t width, uint32_t height, uint32_t mip_levels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
 	                  VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& image_memory,
 	                  vulkan_data& vulkan) -> bool
 	{
@@ -1094,7 +1094,7 @@ namespace Mythos::vulkan
 		imageInfo.extent.width = width;
 		imageInfo.extent.height = height;
 		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = 1;
+		imageInfo.mipLevels = mip_levels;
 		imageInfo.arrayLayers = 1;
 		imageInfo.format = format;
 		imageInfo.tiling = tiling;
@@ -1126,7 +1126,7 @@ namespace Mythos::vulkan
 		return true;
 	}
 
-	auto create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags,
+	auto create_image_view(VkImage image, VkFormat format, VkImageAspectFlags aspect_flags, uint32_t mip_levels,
 	                       vulkan_data& vulkan) -> VkImageView
 	{
 		VkImageViewCreateInfo viewInfo{};
@@ -1136,7 +1136,7 @@ namespace Mythos::vulkan
 		viewInfo.format = format;
 		viewInfo.subresourceRange.aspectMask = aspect_flags;
 		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.levelCount = mip_levels;
 		viewInfo.subresourceRange.baseArrayLayer = 0;
 		viewInfo.subresourceRange.layerCount = 1;
 
@@ -1218,7 +1218,7 @@ namespace Mythos::vulkan
 		vkFreeCommandBuffers(vulkan.device, vulkan.command_pool, 1, &command_buffer);
 	}
 
-	auto transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
+	auto transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mip_levels,
 	                             vulkan_data& vulkan) -> void
 	{
 		VkCommandBuffer commandBuffer = begin_single_time_commands(vulkan);
@@ -1232,7 +1232,7 @@ namespace Mythos::vulkan
 		barrier.image = image;
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.levelCount = mip_levels;
 		barrier.subresourceRange.baseArrayLayer = 0;
 		barrier.subresourceRange.layerCount = 1;
 
@@ -1321,23 +1321,108 @@ namespace Mythos::vulkan
 		end_single_time_commands(commandBuffer, vulkan);
 	}
 
+	void generate_mipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels, vulkan_data& vulkan)
+	{
+		// Check if image format supports linear blitting
+		VkFormatProperties formatProperties;
+		vkGetPhysicalDeviceFormatProperties(vulkan.physical_device, imageFormat, &formatProperties);
+
+		if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+			throw std::runtime_error("texture image format does not support linear blitting!");
+		}
+
+		VkCommandBuffer commandBuffer = begin_single_time_commands(vulkan);
+
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.image = image;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.baseArrayLayer = 0;
+		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.levelCount = 1;
+
+		int32_t mipWidth = texWidth;
+		int32_t mipHeight = texHeight;
+
+		for (uint32_t i = 1; i < mipLevels; i++) {
+			barrier.subresourceRange.baseMipLevel = i - 1;
+			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+			vkCmdPipelineBarrier(commandBuffer,
+				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+				0, nullptr,
+				0, nullptr,
+				1, &barrier);
+
+			VkImageBlit blit{};
+			blit.srcOffsets[0] = { 0, 0, 0 };
+			blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
+			blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			blit.srcSubresource.mipLevel = i - 1;
+			blit.srcSubresource.baseArrayLayer = 0;
+			blit.srcSubresource.layerCount = 1;
+			blit.dstOffsets[0] = { 0, 0, 0 };
+			blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+			blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			blit.dstSubresource.mipLevel = i;
+			blit.dstSubresource.baseArrayLayer = 0;
+			blit.dstSubresource.layerCount = 1;
+
+			vkCmdBlitImage(commandBuffer,
+				image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				1, &blit,
+				VK_FILTER_LINEAR);
+
+			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			vkCmdPipelineBarrier(commandBuffer,
+				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+				0, nullptr,
+				0, nullptr,
+				1, &barrier);
+
+			if (mipWidth > 1) mipWidth /= 2;
+			if (mipHeight > 1) mipHeight /= 2;
+		}
+
+		barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		vkCmdPipelineBarrier(commandBuffer,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+			0, nullptr,
+			0, nullptr,
+			1, &barrier);
+
+		end_single_time_commands(commandBuffer, vulkan);
+	}
+
 	auto create_texture_image(vulkan_data& vulkan) -> bool
 	{
 		int texWidth, texHeight, texChannels;
 		stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
+		vulkan.mip_levels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
-		if (!pixels)
-		{
-			Debug::error("Vulkan failed to load texture image!");
-			return false;
+		if (!pixels) {
+			throw std::runtime_error("failed to load texture image!");
 		}
 
 		VkBuffer stagingBuffer;
 		VkDeviceMemory stagingBufferMemory;
-		create_buffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer,
-		              stagingBufferMemory, vulkan);
+		create_buffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory, vulkan);
 
 		void* data;
 		vkMapMemory(vulkan.device, stagingBufferMemory, 0, imageSize, 0, &data);
@@ -1346,20 +1431,16 @@ namespace Mythos::vulkan
 
 		stbi_image_free(pixels);
 
-		create_image(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-		             VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		             vulkan.texture_image, vulkan.texture_image_memory, vulkan);
+		create_image(texWidth, texHeight, vulkan.mip_levels, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.texture_image, vulkan.texture_image_memory, vulkan);
 
-		transition_image_layout(vulkan.texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
-		                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vulkan);
-		copy_buffer_to_image(stagingBuffer, vulkan.texture_image, static_cast<uint32_t>(texWidth),
-		                     static_cast<uint32_t>(texHeight), vulkan);
-
-		transition_image_layout(vulkan.texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vulkan);
+		transition_image_layout(vulkan.texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vulkan.mip_levels, vulkan);
+		copy_buffer_to_image(stagingBuffer, vulkan.texture_image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), vulkan);
+		//transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
 
 		vkDestroyBuffer(vulkan.device, stagingBuffer, nullptr);
 		vkFreeMemory(vulkan.device, stagingBufferMemory, nullptr);
+
+		generate_mipmaps(vulkan.texture_image, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, vulkan.mip_levels, vulkan);
 
 		return true;
 	}
@@ -1371,7 +1452,7 @@ namespace Mythos::vulkan
 		for (size_t i = 0; i < vulkan.images.size(); i++)
 		{
 			vulkan.image_views[i] = create_image_view(vulkan.images[i], vulkan.swapchain_surface_format.format,
-			                                          VK_IMAGE_ASPECT_COLOR_BIT, vulkan);
+			                                          VK_IMAGE_ASPECT_COLOR_BIT, 1, vulkan);
 		}
 		return true;
 	}
@@ -1379,7 +1460,7 @@ namespace Mythos::vulkan
 	auto create_texture_image_view(vulkan_data& vulkan) -> bool
 	{
 		vulkan.texture_image_view = create_image_view(vulkan.texture_image, VK_FORMAT_R8G8B8A8_SRGB,
-		                                              VK_IMAGE_ASPECT_COLOR_BIT, vulkan);
+		                                              VK_IMAGE_ASPECT_COLOR_BIT, vulkan.mip_levels, vulkan);
 		return vulkan.texture_image_view != VK_NULL_HANDLE;
 	}
 
@@ -1402,16 +1483,15 @@ namespace Mythos::vulkan
 		samplerInfo.compareEnable = VK_FALSE;
 		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
 		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerInfo.minLod = static_cast<float>(vulkan.mip_levels/2);
+		samplerInfo.maxLod = static_cast<float>(vulkan.mip_levels);
 		samplerInfo.mipLodBias = 0.0f;
-		samplerInfo.minLod = 0.0f;
-		samplerInfo.maxLod = 0.0f;
 
-		if (vkCreateSampler(vulkan.device, &samplerInfo, nullptr, &vulkan.texture_sampler) != VK_SUCCESS)
+		if (vkCreateSampler(vulkan.device, &samplerInfo, nullptr, &vulkan.texture_sampler) != VK_SUCCESS) 
 		{
-			Debug::error("failed to create texture sampler!");
+			throw std::runtime_error("failed to create texture sampler!");
 			return false;
 		}
-
 		return true;
 	}
 
@@ -1903,18 +1983,24 @@ namespace Mythos::vulkan
 
 	auto create_depth_resources(vulkan_data& vulkan) -> bool
 	{
-		const auto depth_format = find_depth_format(vulkan);
+		/*const auto depth_format = find_depth_format(vulkan);
 
-		create_image(vulkan.swapchain_extents.width, vulkan.swapchain_extents.height, depth_format,
+		create_image(vulkan.swapchain_extents.width, vulkan.swapchain_extents.height, 1, depth_format,
 		             VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.depth_image, vulkan.depth_image_memory, vulkan);
 		vulkan.depth_image_view =
-			create_image_view(vulkan.depth_image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT, vulkan);
+			create_image_view(vulkan.depth_image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT, 1, vulkan);
 
 		transition_image_layout(vulkan.depth_image, depth_format, VK_IMAGE_LAYOUT_UNDEFINED,
-		                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, vulkan);
+		                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, vulkan);*/
 
 
+
+		VkFormat depthFormat = find_depth_format(vulkan);
+
+		auto& extent = vulkan.swapchain_extents;
+		create_image(extent.width, extent.height, 1, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.depth_image, vulkan.depth_image_memory, vulkan);
+		vulkan.depth_image_view = create_image_view(vulkan.depth_image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1, vulkan);
 		return true;
 	}
 }
