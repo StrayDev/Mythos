@@ -56,6 +56,9 @@ namespace Mythos
 		success = vulkan::create_command_pool(*vulkan_data_);
 		if (!success) return;
 
+		success = vulkan::create_color_resources(*vulkan_data_);
+		if (!success) return;
+
 		success = vulkan::create_depth_resources(*vulkan_data_);
 		if (!success) return;
 

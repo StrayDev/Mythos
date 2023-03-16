@@ -31,6 +31,8 @@ namespace Mythos::vulkan
 {
 	// --
 
+	auto get_max_usable_sample_count(vulkan_data& vulkan) -> VkSampleCountFlagBits;
+
 	auto find_depth_format(vulkan_data& vulkan) -> VkFormat;
 
 	// --
@@ -404,6 +406,7 @@ namespace Mythos::vulkan
 			if (is_physical_device_suitable(device, vulkan))
 			{
 				vulkan.physical_device = device;
+				vulkan.msaa_samples = get_max_usable_sample_count(vulkan);
 				return true;
 			}
 		}
@@ -460,6 +463,8 @@ namespace Mythos::vulkan
 		auto& create_info = vulkan.device_create_info;
 
 		vulkan.physical_device_features.samplerAnisotropy = VK_TRUE;
+		vulkan.physical_device_features.sampleRateShading = VK_TRUE; 
+
 
 		create_info =
 		{
@@ -494,8 +499,7 @@ namespace Mythos::vulkan
 
 		set_logical_device_create_info(vulkan);
 
-		const auto result = vkCreateDevice(vulkan.physical_device, &vulkan.device_create_info, nullptr,
-		                                   &vulkan.device);
+		const auto result = vkCreateDevice(vulkan.physical_device, &vulkan.device_create_info, nullptr, &vulkan.device);
 
 		if (result != VK_SUCCESS)
 		{
@@ -654,16 +658,21 @@ namespace Mythos::vulkan
 		VkAttachmentReference colorAttachmentRef{};
 		colorAttachmentRef.attachment = 0;
 		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
+		
 		VkAttachmentReference depthAttachmentRef{};
 		depthAttachmentRef.attachment = 1;
 		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference colorAttachmentResolveRef{};
+		colorAttachmentResolveRef.attachment = 2;
+		colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkSubpassDescription subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+		subpass.pResolveAttachments = &colorAttachmentResolveRef;
 
 		VkSubpassDependency dependency{};
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -683,19 +692,30 @@ namespace Mythos::vulkan
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		colorAttachment.samples = vulkan.msaa_samples;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentDescription depthAttachment{};
 		depthAttachment.format = find_depth_format(vulkan);
-		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		depthAttachment.samples = vulkan.msaa_samples;
 
-		std::array<VkAttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
+		VkAttachmentDescription colorAttachmentResolve{};
+		colorAttachmentResolve.format = vulkan.swapchain_surface_format.format;
+		colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+		std::array<VkAttachmentDescription, 3> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
 
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -879,12 +899,12 @@ namespace Mythos::vulkan
 		// multisampling
 		VkPipelineMultisampleStateCreateInfo multisampling{};
 		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-		multisampling.sampleShadingEnable = VK_FALSE;
-		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-		multisampling.minSampleShading = 1.0f; // Optional
+		multisampling.rasterizationSamples = vulkan.msaa_samples;
 		multisampling.pSampleMask = nullptr; // Optional
 		multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
 		multisampling.alphaToOneEnable = VK_FALSE; // Optional
+		multisampling.sampleShadingEnable = VK_TRUE; // enable sample shading in the pipeline
+		multisampling.minSampleShading = .2f; // min fraction for sample shading; closer to one is smoother
 
 		// colour blending
 		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
@@ -984,10 +1004,11 @@ namespace Mythos::vulkan
 
 		for (size_t i = 0; i < image_views.size(); i++)
 		{
-			std::array<VkImageView, 2> attachments =
+			std::array<VkImageView, 3> attachments =
 			{
-				vulkan.image_views[i],
+				vulkan.color_image_view,
 				vulkan.depth_image_view,
+				vulkan.image_views[i],
 			};
 
 			VkFramebufferCreateInfo framebufferInfo{};
@@ -1084,7 +1105,7 @@ namespace Mythos::vulkan
 		throw std::runtime_error("failed to find suitable memory type!");
 	}
 
-	auto create_image(uint32_t width, uint32_t height, uint32_t mip_levels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
+	auto create_image(uint32_t width, uint32_t height, uint32_t mip_levels, VkSampleCountFlagBits num_samples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
 	                  VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& image_memory,
 	                  vulkan_data& vulkan) -> bool
 	{
@@ -1100,7 +1121,7 @@ namespace Mythos::vulkan
 		imageInfo.tiling = tiling;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		imageInfo.usage = usage;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageInfo.samples = num_samples;
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 		if (vkCreateImage(vulkan.device, &imageInfo, nullptr, &image) != VK_SUCCESS)
@@ -1431,7 +1452,7 @@ namespace Mythos::vulkan
 
 		stbi_image_free(pixels);
 
-		create_image(texWidth, texHeight, vulkan.mip_levels, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.texture_image, vulkan.texture_image_memory, vulkan);
+		create_image(texWidth, texHeight, vulkan.mip_levels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.texture_image, vulkan.texture_image_memory, vulkan);
 
 		transition_image_layout(vulkan.texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vulkan.mip_levels, vulkan);
 		copy_buffer_to_image(stagingBuffer, vulkan.texture_image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), vulkan);
@@ -1483,7 +1504,7 @@ namespace Mythos::vulkan
 		samplerInfo.compareEnable = VK_FALSE;
 		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
 		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerInfo.minLod = static_cast<float>(vulkan.mip_levels/2);
+		samplerInfo.minLod = 0.0f;
 		samplerInfo.maxLod = static_cast<float>(vulkan.mip_levels);
 		samplerInfo.mipLodBias = 0.0f;
 
@@ -1930,6 +1951,7 @@ namespace Mythos::vulkan
 
 		create_swapchain(hwnd, vulkan);
 		create_image_views(vulkan);
+		create_color_resources(vulkan);
 		create_depth_resources(vulkan);
 		create_frame_buffers(vulkan);
 	}
@@ -1937,6 +1959,10 @@ namespace Mythos::vulkan
 	auto destroy_vulkan_data(vulkan_data& vulkan) -> void
 	{
 		clean_up_swapchain(vulkan);
+
+		vkDestroyImageView(vulkan.device, vulkan.color_image_view, nullptr);
+		vkDestroyImage(vulkan.device, vulkan.color_image, nullptr);
+		vkFreeMemory(vulkan.device, vulkan.color_image_memory, nullptr);
 
 		vkDestroySampler(vulkan.device, vulkan.texture_sampler, nullptr);
 		vkDestroyImageView(vulkan.device, vulkan.texture_image_view, nullptr);
@@ -1983,24 +2009,37 @@ namespace Mythos::vulkan
 
 	auto create_depth_resources(vulkan_data& vulkan) -> bool
 	{
-		/*const auto depth_format = find_depth_format(vulkan);
-
-		create_image(vulkan.swapchain_extents.width, vulkan.swapchain_extents.height, 1, depth_format,
-		             VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-		             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.depth_image, vulkan.depth_image_memory, vulkan);
-		vulkan.depth_image_view =
-			create_image_view(vulkan.depth_image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT, 1, vulkan);
-
-		transition_image_layout(vulkan.depth_image, depth_format, VK_IMAGE_LAYOUT_UNDEFINED,
-		                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, vulkan);*/
-
-
-
 		VkFormat depthFormat = find_depth_format(vulkan);
 
 		auto& extent = vulkan.swapchain_extents;
-		create_image(extent.width, extent.height, 1, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.depth_image, vulkan.depth_image_memory, vulkan);
+		create_image(extent.width, extent.height, 1, vulkan.msaa_samples, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.depth_image, vulkan.depth_image_memory, vulkan);
 		vulkan.depth_image_view = create_image_view(vulkan.depth_image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1, vulkan);
 		return true;
+	}
+
+	auto create_color_resources(vulkan_data& vulkan) -> bool
+	{
+		auto& colorFormat = vulkan.swapchain_surface_format.format;
+		auto& extent = vulkan.swapchain_extents;
+		create_image(extent.width, extent.height, 1, vulkan.msaa_samples, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vulkan.color_image, vulkan.color_image_memory, vulkan);
+		vulkan.color_image_view = create_image_view(vulkan.color_image, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, vulkan);
+
+		return true;
+	}
+
+	auto get_max_usable_sample_count(vulkan_data& vulkan) -> VkSampleCountFlagBits
+	{
+		VkPhysicalDeviceProperties physicalDeviceProperties;
+		vkGetPhysicalDeviceProperties(vulkan.physical_device, &physicalDeviceProperties);
+
+		VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+		if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+		if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+		if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+		if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+		if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+		if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+		return VK_SAMPLE_COUNT_1_BIT;
 	}
 }

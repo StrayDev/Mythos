@@ -147,6 +147,11 @@ namespace Mythos::vulkan
 		VkImageView texture_image_view = {};
 		VkDeviceMemory texture_image_memory = {};
 
+		VkImage color_image = {};
+		VkImageView color_image_view = {};
+		VkDeviceMemory color_image_memory = {};
+		VkSampleCountFlagBits msaa_samples = { VK_SAMPLE_COUNT_1_BIT };
+
 		VkImage depth_image = {};
 		VkImageView depth_image_view = {};
 		VkDeviceMemory depth_image_memory = {};
